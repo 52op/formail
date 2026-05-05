@@ -4,8 +4,11 @@ package main
 
 import (
 	"io/fs"
-	"net/http"
+	"log"
+	"mime"
 	"os"
+	"path/filepath"
+	"strings"
 
 	"formail"
 
@@ -22,7 +25,19 @@ func serveStatic(r *gin.Engine) {
 		r.Static("/assets", "./web/static")
 		return
 	}
-	r.StaticFS("/assets", http.FS(sub))
+	r.GET("/assets/*filepath", func(c *gin.Context) {
+		fp := strings.TrimPrefix(c.Param("filepath"), "/")
+		data, err := fs.ReadFile(sub, fp)
+		if err != nil {
+			c.Status(404)
+			return
+		}
+		ct := mime.TypeByExtension(filepath.Ext(fp))
+		if ct == "" {
+			ct = "application/octet-stream"
+		}
+		c.Data(200, ct, data)
+	})
 }
 
 func servePage(c *gin.Context, path string) {
@@ -30,10 +45,21 @@ func servePage(c *gin.Context, path string) {
 		c.File("./web/static/pages" + path)
 		return
 	}
-	sub, err := fs.Sub(formail.WebFS, "web")
-	if err != nil {
+	if formail.WebFS == nil {
 		c.File("./web/static/pages" + path)
 		return
 	}
-	c.FileFromFS("/pages"+path, http.FS(sub))
+	sub, err := fs.Sub(formail.WebFS, "web/static")
+	if err != nil {
+		log.Printf("[servePage] fs.Sub error: %v", err)
+		c.File("./web/static/pages" + path)
+		return
+	}
+	data, err := fs.ReadFile(sub, "pages"+path)
+	if err != nil {
+		log.Printf("[servePage] fs.ReadFile error: %v", err)
+		c.File("./web/static/pages" + path)
+		return
+	}
+	c.Data(200, "text/html; charset=utf-8", data)
 }

@@ -50,6 +50,7 @@ func main() {
 	r := gin.New()
 	r.Use(middleware.ReverseProxyGuard(cfg.DirectAccess), gin.Logger(), gin.Recovery(), middleware.CORS())
 	serveStatic(r)
+	r.Static("/uploads", "./data/uploads")
 
 	r.GET("/", func(c *gin.Context) { servePage(c, "/landing.html") })
 	r.GET("/docs", func(c *gin.Context) { servePage(c, "/docs.html") })

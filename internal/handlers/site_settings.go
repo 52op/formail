@@ -144,7 +144,7 @@ func (h *Handler) UploadSiteAsset(c *gin.Context) {
 
 	timestamp := time.Now().Unix()
 	newFileName := fmt.Sprintf("%s_%d%s", fileType, timestamp, ext)
-	savePath := filepath.Join("web", "static", "uploads", newFileName)
+	savePath := filepath.Join("data", "uploads", newFileName)
 
 	err = os.MkdirAll(filepath.Dir(savePath), 0755)
 	if err != nil {
@@ -175,14 +175,14 @@ func (h *Handler) UploadSiteAsset(c *gin.Context) {
 		deleteOldFile(oldURL)
 	}
 
-	url := "/assets/uploads/" + newFileName
+	url := "/uploads/" + newFileName
 	utils.OK(c, gin.H{"url": url})
 }
 
 func deleteOldFile(url string) {
-	if !strings.HasPrefix(url, "/assets/uploads/") {
+	if !strings.HasPrefix(url, "/uploads/") {
 		return
 	}
-	filePath := filepath.Join("web", "static", "uploads", filepath.Base(url))
+	filePath := filepath.Join("data", "uploads", filepath.Base(url))
 	os.Remove(filePath)
 }

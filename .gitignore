@@ -51,7 +51,7 @@ config.toml
 .env.*
 
 # Upload directory
-web/static/uploads/
+data/uploads/
 
 # Temporary files
 tmp/
