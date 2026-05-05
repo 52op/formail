@@ -18,8 +18,8 @@ vendor/
 go.work
 
 # Compiled binary
-formail
-formail.exe
+/formail
+/formail.exe
 
 # Database files
 *.db
