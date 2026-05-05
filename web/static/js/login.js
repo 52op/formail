@@ -855,7 +855,7 @@ function initLoginPage() {
         markInputError("reg_password");
         throw new Error("请输入密码");
       }
-      await API.request(
+      const data = await API.request(
         "/api/auth/register",
         {
           method: "POST",
@@ -868,10 +868,20 @@ function initLoginPage() {
         },
         false,
       );
-      toast("注册成功，请等待状态启用后登录");
+      if (data.status === 0) {
+        showPendingPanel(email);
+      } else {
+        toast("注册成功，请登录");
+        showTab("pane-password");
+      }
     } catch (e) {
       toast(e.message, true);
     }
+  };
+
+  document.getElementById("btnRefreshStatus").onclick = () => {
+    const email = document.getElementById("pendingEmail").textContent;
+    if (email) checkRegStatus(email);
   };
 }
 
@@ -912,6 +922,48 @@ async function sendCodeWithCaptcha(
   );
   setCooldown(btn, Number(r.cooldown_seconds || 60));
   toast("验证码已发送");
+}
+
+let regStatusTimer = null;
+
+function showPendingPanel(email) {
+  document.getElementById("pendingEmail").textContent = email;
+  const statusEl = document.getElementById("pendingStatus");
+  statusEl.textContent = "审核中...";
+  statusEl.className = "status-pending";
+  document.getElementById("btnGoLogin").style.display = "none";
+
+  document.querySelectorAll(".tab-btn").forEach((b) => b.classList.remove("active"));
+  document.querySelectorAll(".tab-pane").forEach((p) => p.classList.remove("active"));
+  document.getElementById("pane-pending").classList.add("active");
+
+  checkRegStatus(email);
+  if (regStatusTimer) clearInterval(regStatusTimer);
+  regStatusTimer = setInterval(() => checkRegStatus(email), 10000);
+}
+
+async function checkRegStatus(email) {
+  try {
+    const r = await API.request(
+      "/api/auth/reg-status?email=" + encodeURIComponent(email),
+      {},
+      false,
+    );
+    const statusEl = document.getElementById("pendingStatus");
+    if (r.status === "approved") {
+      statusEl.textContent = "已通过";
+      statusEl.className = "status-approved";
+      document.getElementById("btnGoLogin").style.display = "";
+      if (regStatusTimer) { clearInterval(regStatusTimer); regStatusTimer = null; }
+      toast("审核已通过，现在可以登录了");
+    } else if (r.status === "not_found") {
+      statusEl.textContent = "未通过";
+      statusEl.className = "status-rejected";
+      if (regStatusTimer) { clearInterval(regStatusTimer); regStatusTimer = null; }
+    }
+  } catch (e) {
+    // 静默失败，等下次轮询
+  }
 }
 
 document.addEventListener("DOMContentLoaded", initLoginPage);

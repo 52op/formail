@@ -103,3 +103,26 @@ func (h *Handler) ChangePassword(c *gin.Context) {
 	}
 	utils.OK(c, gin.H{"changed": true})
 }
+
+func (h *Handler) RegStatus(c *gin.Context) {
+	email := strings.TrimSpace(strings.ToLower(c.Query("email")))
+	if !isValidEmail(email) {
+		utils.Fail(c, 400, "请输入有效的邮箱地址")
+		return
+	}
+	var status int
+	err := h.DB.QueryRow(`SELECT status FROM users WHERE username=?`, email).Scan(&status)
+	if err == sql.ErrNoRows {
+		utils.OK(c, gin.H{"status": "not_found"})
+		return
+	}
+	if err != nil {
+		utils.Fail(c, 500, err.Error())
+		return
+	}
+	if status == 1 {
+		utils.OK(c, gin.H{"status": "approved"})
+		return
+	}
+	utils.OK(c, gin.H{"status": "pending"})
+}

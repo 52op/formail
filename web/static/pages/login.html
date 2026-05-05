@@ -406,6 +406,10 @@
                 margin-bottom: var(--space-sm);
                 text-align: center;
             }
+
+            .status-pending { color: var(--color-primary) !important; }
+            .status-approved { color: var(--color-success, #16a34a) !important; }
+            .status-rejected { color: var(--color-danger, #dc2626) !important; }
         </style>
     </head>
     <body>
@@ -610,6 +614,37 @@
                         <a href="#" onclick="showTab('pane-password')"
                             >已有账号？立即登录</a
                         >
+                    </div>
+                </section>
+
+                <section id="pane-pending" class="tab-pane">
+                    <div style="text-align: center; padding: var(--space-md) 0;">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 48px; height: 48px; color: var(--color-primary); margin-bottom: var(--space-md);">
+                            <circle cx="12" cy="12" r="10"/>
+                            <polyline points="12 6 12 12 16 14"/>
+                        </svg>
+                        <h2 style="font-size: var(--text-xl); font-weight: 600; margin-bottom: var(--space-sm);">注册成功</h2>
+                        <p style="color: var(--color-gray-500); font-size: var(--text-sm);">您的账号正在等待管理员审核</p>
+                    </div>
+                    <div style="background: var(--color-gray-50); border-radius: var(--radius-md); padding: var(--space-md); margin-top: var(--space-md);">
+                        <div style="display: flex; justify-content: space-between; margin-bottom: var(--space-sm);">
+                            <span style="color: var(--color-gray-500); font-size: var(--text-sm);">邮箱</span>
+                            <span id="pendingEmail" style="font-size: var(--text-sm); font-weight: 500;"></span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <span style="color: var(--color-gray-500); font-size: var(--text-sm);">状态</span>
+                            <span id="pendingStatus" style="font-size: var(--text-sm); font-weight: 500; color: var(--color-primary);">
+                                审核中...
+                            </span>
+                        </div>
+                    </div>
+                    <div class="actions" style="margin-top: var(--space-lg); gap: var(--space-sm);">
+                        <button class="btn btn-secondary" style="flex: 1" id="btnRefreshStatus" type="button">
+                            刷新状态
+                        </button>
+                        <button class="btn btn-primary" style="flex: 1; display: none;" id="btnGoLogin" type="button" onclick="showTab('pane-password')">
+                            去登录
+                        </button>
                     </div>
                 </section>
             </div>

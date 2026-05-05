@@ -147,6 +147,11 @@ func (h *Handler) ApproveRegistration(c *gin.Context) {
 		htmlResult(c, "审核失败", err.Error(), false)
 		return
 	}
+	var userEmail string
+	_ = h.DB.QueryRow(`SELECT email FROM users WHERE id=?`, claims.UserID).Scan(&userEmail)
+	if isValidEmail(userEmail) {
+		_ = h.enqueueServiceMail(userEmail, "Formail 注册审核已通过", "您的注册申请已通过审核，现在可以正常登录了。", "register_approved")
+	}
 	htmlResult(c, "审核通过", "用户已启用，可以正常登录。", true)
 }
 
@@ -170,9 +175,14 @@ func (h *Handler) RejectRegistration(c *gin.Context) {
 		htmlResult(c, "拒绝失败", "该审核链接已使用", false)
 		return
 	}
+	var userEmail string
+	_ = h.DB.QueryRow(`SELECT email FROM users WHERE id=? AND status=0`, claims.UserID).Scan(&userEmail)
 	if _, err := h.DB.Exec(`DELETE FROM users WHERE id=? AND status=0`, claims.UserID); err != nil {
 		htmlResult(c, "拒绝失败", err.Error(), false)
 		return
+	}
+	if isValidEmail(userEmail) {
+		_ = h.enqueueServiceMail(userEmail, "Formail 注册审核未通过", "很抱歉，您的注册申请未能通过审核。", "register_rejected")
 	}
 	htmlResult(c, "已拒绝申请", "待审核用户已删除。", true)
 }

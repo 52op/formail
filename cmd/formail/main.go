@@ -74,6 +74,7 @@ func main() {
 	r.POST("/api/auth/register", h.Register)
 	r.GET("/api/auth/approve", h.ApproveRegistration)
 	r.GET("/api/auth/reject", h.RejectRegistration)
+	r.GET("/api/auth/reg-status", h.RegStatus)
 
 	auth := r.Group("/api")
 	auth.Use(middleware.RequireAuth(cfg.Security.JWTSecret))
