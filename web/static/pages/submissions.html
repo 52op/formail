@@ -1,0 +1,275 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Formail - 提交记录</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/assets/css/style.css" />
+</head>
+<body>
+    <script src="/assets/js/api.js"></script>
+    <script src="/assets/js/layout.js"></script>
+    <script>
+        requireAuth();
+
+        const v = (id) => document.getElementById(id).value;
+        let currentPage = 1;
+        const pageLimit = 20;
+
+        async function initPage() {
+            await renderLayout(
+                "submissions",
+                "提交记录",
+                `
+  <section class="card">
+    <div class="card-header">
+      <h3 class="card-title">筛选条件</h3>
+    </div>
+    <div class="grid">
+      <div class="form-group">
+        <label>按表单筛选（form_id）</label>
+        <input id="form_id" type="number" placeholder="输入表单ID" />
+      </div>
+      <div class="form-group">
+        <label>按状态筛选</label>
+        <select id="status_filter">
+          <option value="">全部</option>
+          <option value="spam">疑似垃圾</option>
+          <option value="normal">正常</option>
+          <option value="sent">已发信</option>
+          <option value="not_sent">未发信</option>
+        </select>
+      </div>
+    </div>
+    <div class="actions" style="margin-top: var(--space-md);">
+      <button class="btn btn-primary" id="queryBtn">查询</button>
+      <button class="btn btn-secondary" id="exportBtn">导出 CSV</button>
+      <button class="btn btn-secondary" id="clearBtn">清除筛选</button>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="card-header">
+      <h3 class="card-title">提交记录列表</h3>
+      <div id="resultCount" class="muted"></div>
+    </div>
+    <div id="batchBar" style="display:none;padding:8px 12px;background:var(--color-gray-50);border:1px solid var(--color-gray-200);border-radius:var(--radius-md);margin-bottom:var(--space-md);align-items:center;gap:12px;">
+      <span id="batchCount" style="font-size:var(--text-sm);font-weight:500;"></span>
+      <button class="btn btn-danger btn-sm" onclick="batchDelete()">批量删除</button>
+      <button class="btn btn-secondary btn-sm" onclick="batchExport()">批量导出</button>
+      <button class="btn btn-secondary btn-sm" onclick="clearSelection()" style="margin-left:auto;">取消选择</button>
+    </div>
+    <table>
+      <thead><tr><th style="width:40px;"><input type="checkbox" id="selectAll" onchange="toggleSelectAll(this)" /></th><th>ID</th><th>表单ID</th><th>来源IP</th><th>状态</th><th>数据内容</th><th>创建时间</th><th>操作</th></tr></thead>
+      <tbody id="tbody"></tbody>
+    </table>
+    <div id="pagination" style="display:flex;justify-content:space-between;align-items:center;margin-top:var(--space-md);flex-wrap:wrap;gap:8px;"></div>
+  </section>
+`,
+            );
+
+            document.getElementById("queryBtn").onclick = () => { currentPage = 1; query(); };
+
+            document.getElementById("clearBtn").onclick = () => {
+                document.getElementById("form_id").value = "";
+                document.getElementById("status_filter").value = "";
+                currentPage = 1;
+                query();
+            };
+
+            document.getElementById("exportBtn").onclick = async () => {
+                try {
+                    const fid = v("form_id").trim();
+                    let url = "/api/submissions/export";
+                    if (fid) url += `?form_id=${encodeURIComponent(fid)}`;
+                    const res = await fetch(url, {
+                        headers: { Authorization: `Bearer ${API.token()}` },
+                    });
+                    if (!res.ok) throw new Error(`导出失败 HTTP ${res.status}`);
+                    const blob = await res.blob();
+                    const a = document.createElement("a");
+                    a.href = URL.createObjectURL(blob);
+                    a.download = `submissions_${new Date().toISOString().split('T')[0]}.csv`;
+                    document.body.appendChild(a);
+                    a.click();
+                    a.remove();
+                    URL.revokeObjectURL(a.href);
+                    toast("导出成功", false);
+                } catch (e) {
+                    toast(e.message, true);
+                }
+            };
+
+            query();
+        }
+
+        async function load(filter = {}) {
+            let url = "/api/submissions";
+            const params = [`page=${currentPage}`, `limit=${pageLimit}`];
+            if (filter.formId) params.push(`form_id=${encodeURIComponent(filter.formId)}`);
+            url += "?" + params.join("&");
+
+            const res = await API.request(url);
+            const rows = res.items || [];
+            const total = res.total || 0;
+            const page = res.page || 1;
+            const totalPages = Math.max(1, Math.ceil(total / pageLimit));
+            currentPage = page;
+
+            // 状态筛选（客户端）
+            const statusFilter = filter.status;
+            const filtered = statusFilter ? rows.filter(x => {
+                if (statusFilter === "spam") return x.is_spam;
+                if (statusFilter === "normal") return !x.is_spam;
+                if (statusFilter === "sent") return x.email_sent;
+                if (statusFilter === "not_sent") return !x.email_sent;
+                return true;
+            }) : rows;
+
+            document.getElementById("resultCount").innerText = `共 ${total} 条记录`;
+            document.getElementById("tbody").innerHTML = filtered
+                .map(
+                    (x) => `
+    <tr>
+      <td><input type="checkbox" class="row-check" value="${x.id}" onchange="updateBatchBar()" /></td>
+      <td>${x.id}</td>
+      <td>${x.form_id}</td>
+      <td>${x.ip || "-"}<br/><small class="muted">${x.user_agent || ""}</small></td>
+      <td>
+        ${x.is_spam ? '<span class="badge badge-danger">疑似垃圾</span>' : '<span class="badge badge-success">正常</span>'}
+        ${x.email_sent ? '<span class="badge badge-info">已发信</span>' : '<span class="badge badge-warning">未发信</span>'}
+        ${x.send_error ? `<br/><small class="muted">${x.send_error}</small>` : ""}
+      </td>
+      <td style="max-width: 300px;">
+        <pre style="white-space:pre-wrap;margin:0;font-size:var(--text-xs);background:var(--color-gray-50);padding:8px;border-radius:4px;max-height:100px;overflow:auto;">${escapeHtml(JSON.stringify(x.data || {}, null, 2))}</pre>
+      </td>
+      <td>${x.created_at || "-"}</td>
+      <td>
+        <button class="btn btn-danger btn-sm" onclick="delById(${x.id})">删除</button>
+      </td>
+    </tr>
+  `,
+                    )
+                .join("");
+            document.getElementById("selectAll").checked = false;
+            updateBatchBar();
+
+            // 分页控件
+            renderPagination(page, totalPages, total);
+        }
+
+        function renderPagination(page, totalPages, total) {
+            const el = document.getElementById("pagination");
+            if (total <= pageLimit) {
+                el.innerHTML = `<span class="muted" style="font-size:var(--text-sm);">共 ${total} 条</span><span></span>`;
+                return;
+            }
+            let btns = '';
+            btns += `<button class="btn btn-secondary btn-sm" onclick="goPage(${page - 1})" ${page <= 1 ? 'disabled' : ''}>上一页</button>`;
+            btns += `<span style="font-size:var(--text-sm);">第 ${page} / ${totalPages} 页</span>`;
+            btns += `<button class="btn btn-secondary btn-sm" onclick="goPage(${page + 1})" ${page >= totalPages ? 'disabled' : ''}>下一页</button>`;
+            el.innerHTML = `<span class="muted" style="font-size:var(--text-sm);">共 ${total} 条</span><div style="display:flex;gap:8px;align-items:center;">${btns}</div>`;
+        }
+
+        function goPage(p) {
+            currentPage = p;
+            query();
+        }
+
+        function getSelectedIds() {
+            return Array.from(document.querySelectorAll('.row-check:checked')).map(cb => Number(cb.value));
+        }
+
+        function toggleSelectAll(el) {
+            document.querySelectorAll('.row-check').forEach(cb => cb.checked = el.checked);
+            updateBatchBar();
+        }
+
+        function updateBatchBar() {
+            const ids = getSelectedIds();
+            const bar = document.getElementById("batchBar");
+            if (ids.length > 0) {
+                bar.style.display = "flex";
+                document.getElementById("batchCount").innerText = `已选 ${ids.length} 条`;
+            } else {
+                bar.style.display = "none";
+            }
+        }
+
+        function clearSelection() {
+            document.querySelectorAll('.row-check').forEach(cb => cb.checked = false);
+            document.getElementById("selectAll").checked = false;
+            updateBatchBar();
+        }
+
+        async function batchDelete() {
+            const ids = getSelectedIds();
+            if (ids.length === 0) return;
+            if (!confirm(`确认删除选中的 ${ids.length} 条记录？此操作不可撤销。`)) return;
+            try {
+                const res = await API.request("/api/submissions/batch-delete", {
+                    method: "POST",
+                    body: JSON.stringify({ ids }),
+                });
+                toast(`已删除 ${res.deleted} 条记录`, false);
+                query();
+            } catch (e) {
+                toast(e.message, true);
+            }
+        }
+
+        async function batchExport() {
+            const ids = getSelectedIds();
+            if (ids.length === 0) return;
+            try {
+                // 导出当前筛选条件下的全部数据（不按 ids 过滤，因为 CSV 导出不支持 ids）
+                const fid = v("form_id").trim();
+                let url = "/api/submissions/export";
+                if (fid) url += `?form_id=${encodeURIComponent(fid)}`;
+                const res = await fetch(url, {
+                    headers: { Authorization: `Bearer ${API.token()}` },
+                });
+                if (!res.ok) throw new Error(`导出失败 HTTP ${res.status}`);
+                const blob = await res.blob();
+                const a = document.createElement("a");
+                a.href = URL.createObjectURL(blob);
+                a.download = `submissions_${new Date().toISOString().split('T')[0]}.csv`;
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                URL.revokeObjectURL(a.href);
+                toast("导出成功", false);
+            } catch (e) {
+                toast(e.message, true);
+            }
+        }
+
+        function escapeHtml(s) {
+            return s
+                .replaceAll("&", "&amp;")
+                .replaceAll("<", "&lt;")
+                .replaceAll(">", "&gt;");
+        }
+        
+        async function delById(id) {
+            if (!confirm("确认删除该提交记录？此操作不可撤销。")) return;
+            await API.request(`/api/submissions/${id}`, { method: "DELETE" });
+            toast("记录已删除", false);
+            query();
+        }
+
+        function query() {
+            const filter = {
+                formId: v("form_id").trim() || undefined,
+                status: v("status_filter") || undefined,
+            };
+            load(filter).catch((e) => toast(e.message, true));
+        }
+
+        initPage();
+    </script>
+</body>
+</html>

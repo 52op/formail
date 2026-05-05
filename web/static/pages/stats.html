@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Formail - 数据统计</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/assets/css/style.css" />
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+    <style>
+        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: var(--space-md); margin-bottom: var(--space-lg); }
+        .stat-card { background: white; border: 1px solid var(--color-gray-200); border-radius: var(--radius-lg); padding: var(--space-lg); text-align: center; }
+        .stat-card .stat-value { font-size: 2rem; font-weight: 700; color: var(--color-primary-light); }
+        .stat-card .stat-label { font-size: var(--text-sm); color: var(--color-gray-500); margin-top: 4px; }
+        .chart-container { position: relative; height: 300px; margin-bottom: var(--space-lg); }
+        .rank-table { width: 100%; }
+        .rank-table td, .rank-table th { padding: 8px 12px; }
+    </style>
+</head>
+<body>
+    <script src="/assets/js/api.js"></script>
+    <script src="/assets/js/layout.js"></script>
+    <script>
+        requireAuth();
+
+        let dailyChart = null;
+
+        async function initPage() {
+            await renderLayout(
+                "stats",
+                "数据统计",
+                `
+  <section class="card">
+    <div class="card-header">
+      <h3 class="card-title">概览</h3>
+    </div>
+    <div class="stats-grid" id="overviewCards"></div>
+  </section>
+
+  <section class="card">
+    <div class="card-header">
+      <h3 class="card-title">提交趋势</h3>
+      <select id="daysRange" onchange="loadDaily()" style="padding:4px 8px;border:1px solid var(--color-gray-300);border-radius:var(--radius-sm);font-size:var(--text-sm);">
+        <option value="7">近 7 天</option>
+        <option value="30" selected>近 30 天</option>
+        <option value="90">近 90 天</option>
+      </select>
+    </div>
+    <div class="chart-container">
+      <canvas id="dailyChart"></canvas>
+    </div>
+  </section>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--space-md);">
+    <section class="card">
+      <div class="card-header">
+        <h3 class="card-title">表单提交排行</h3>
+      </div>
+      <table class="rank-table">
+        <thead><tr><th>排名</th><th>表单名称</th><th>提交数</th></tr></thead>
+        <tbody id="formsRank"></tbody>
+      </table>
+    </section>
+
+    <section class="card">
+      <div class="card-header">
+        <h3 class="card-title">渠道发送统计</h3>
+      </div>
+      <table class="rank-table">
+        <thead><tr><th>渠道</th><th>发送数</th><th>成功数</th><th>成功率</th></tr></thead>
+        <tbody id="channelsRank"></tbody>
+      </table>
+    </section>
+  </div>
+`,
+            );
+
+            await Promise.all([loadOverview(), loadDaily(), loadFormsRank(), loadChannelsRank()]);
+        }
+
+        async function loadOverview() {
+            const d = await API.request("/api/stats/overview");
+            document.getElementById("overviewCards").innerHTML = `
+                <div class="stat-card"><div class="stat-value">${d.total_forms}</div><div class="stat-label">总表单数</div></div>
+                <div class="stat-card"><div class="stat-value">${d.total_submissions}</div><div class="stat-label">总提交数</div></div>
+                <div class="stat-card"><div class="stat-value">${d.today_submissions}</div><div class="stat-label">今日提交</div></div>
+                <div class="stat-card"><div class="stat-value">${d.send_rate.toFixed(1)}%</div><div class="stat-label">邮件发送率</div></div>
+            `;
+        }
+
+        async function loadDaily() {
+            const days = document.getElementById("daysRange").value;
+            const rows = await API.request(`/api/stats/daily?days=${days}`);
+
+            const labels = rows.map(r => r.date);
+            const totals = rows.map(r => r.total);
+            const sents = rows.map(r => r.sent);
+
+            if (dailyChart) dailyChart.destroy();
+
+            const ctx = document.getElementById("dailyChart").getContext("2d");
+            dailyChart = new Chart(ctx, {
+                type: "line",
+                data: {
+                    labels,
+                    datasets: [
+                        { label: "提交数", data: totals, borderColor: "#3B82F6", backgroundColor: "rgba(59,130,246,0.1)", fill: true, tension: 0.3 },
+                        { label: "发送成功", data: sents, borderColor: "#10B981", backgroundColor: "rgba(16,185,129,0.1)", fill: true, tension: 0.3 },
+                    ],
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { position: "top" } },
+                    scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } },
+                },
+            });
+        }
+
+        async function loadFormsRank() {
+            const rows = await API.request("/api/stats/forms");
+            document.getElementById("formsRank").innerHTML = rows.length === 0
+                ? '<tr><td colspan="3" class="muted" style="text-align:center;">暂无数据</td></tr>'
+                : rows.map((r, i) => `<tr><td>${i + 1}</td><td>${r.name}</td><td>${r.count}</td></tr>`).join("");
+        }
+
+        async function loadChannelsRank() {
+            const rows = await API.request("/api/stats/channels");
+            document.getElementById("channelsRank").innerHTML = rows.length === 0
+                ? '<tr><td colspan="4" class="muted" style="text-align:center;">暂无数据</td></tr>'
+                : rows.map(r => {
+                    const rate = r.total > 0 ? (r.sent / r.total * 100).toFixed(1) : "0.0";
+                    return `<tr><td>${r.name}</td><td>${r.total}</td><td>${r.sent}</td><td>${rate}%</td></tr>`;
+                }).join("");
+        }
+
+        initPage();
+    </script>
+</body>
+</html>

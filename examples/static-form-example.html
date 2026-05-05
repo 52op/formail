@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Formail 静态表单示例</title>
+</head>
+<body>
+  <h2>留言表单（x-www-form-urlencoded）</h2>
+  <!-- 把 TOKEN 替换为后台生成的 token -->
+  <form action="http://127.0.0.1:8080/f/TOKEN" method="post">
+    <input type="text" name="name" placeholder="你的姓名" required />
+    <input type="email" name="email" placeholder="你的邮箱" required />
+    <textarea name="message" placeholder="留言内容" required></textarea>
+    <!-- 蜜罐字段，正常用户不要填写 -->
+    <input type="text" name="_gotcha" style="display:none" tabindex="-1" autocomplete="off" />
+    <button type="submit">提交</button>
+  </form>
+
+  <hr />
+  <h2>JSON 提交示例（fetch）</h2>
+  <button id="sendJson">发送 JSON</button>
+  <script>
+    document.getElementById('sendJson').onclick = async () => {
+      const res = await fetch('http://127.0.0.1:8080/f/TOKEN', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: 'Alice',
+          email: 'alice@example.com',
+          message: 'hello from JSON',
+          _gotcha: ''
+        })
+      });
+      const text = await res.text();
+      alert(text);
+    };
+  </script>
+</body>
+</html>

@@ -1,0 +1,69 @@
+# Binaries for programs and plugins
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Test binary, built with `go test -c`
+*.test
+
+# Output of the go coverage tool
+*.out
+
+# Dependency directories
+vendor/
+
+# Go workspace file
+go.work
+
+# Compiled binary
+formail
+formail.exe
+
+# Database files
+*.db
+*.db-journal
+
+# Log files
+*.log
+
+# IDE and editor configurations
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# Configuration files with sensitive data
+config.toml
+*.env
+.env.*
+
+# Upload directory
+web/static/uploads/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+*.bak
+
+# Build artifacts
+dist/
+build/
+
+# Reference docs (not part of project)
+.playwright-mcp/
+*.png
+*.svg

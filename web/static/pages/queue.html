@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Formail - 邮件队列</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/assets/css/style.css" />
+</head>
+<body>
+    <script src="/assets/js/api.js"></script>
+    <script src="/assets/js/layout.js"></script>
+    <script>
+        requireAuth();
+
+        let currentStatus = "";
+        let currentPage = 1;
+        let refreshTimer = null;
+
+        async function initPage() {
+            await renderLayout(
+                "queue",
+                "邮件队列",
+                `
+  <section class="card">
+    <div class="card-header">
+      <h3 class="card-title">邮件队列</h3>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <label style="font-size:var(--text-sm);display:flex;align-items:center;gap:4px;">
+          <input type="checkbox" id="autoRefresh" checked onchange="toggleAutoRefresh()" /> 自动刷新
+        </label>
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;margin-bottom:var(--space-md);flex-wrap:wrap;">
+      <button class="btn btn-sm btn-primary" onclick="filterStatus('')">全部</button>
+      <button class="btn btn-sm btn-secondary" onclick="filterStatus('pending')">待处理</button>
+      <button class="btn btn-sm btn-secondary" onclick="filterStatus('sending')">发送中</button>
+      <button class="btn btn-sm btn-secondary" onclick="filterStatus('done')">已完成</button>
+      <button class="btn btn-sm btn-danger" onclick="filterStatus('failed')">失败</button>
+    </div>
+    <table>
+      <thead><tr><th>ID</th><th>收件人</th><th>主题</th><th>状态</th><th>尝试</th><th>最后错误</th><th>创建时间</th><th>操作</th></tr></thead>
+      <tbody id="tbody"></tbody>
+    </table>
+    <div id="pagination" style="display:flex;justify-content:space-between;align-items:center;margin-top:var(--space-md);flex-wrap:wrap;gap:8px;"></div>
+  </section>
+`,
+            );
+
+            toggleAutoRefresh();
+            loadQueue();
+        }
+
+        function filterStatus(s) {
+            currentStatus = s;
+            currentPage = 1;
+            loadQueue();
+        }
+
+        async function loadQueue() {
+            try {
+                let url = `/api/mail-queue?page=${currentPage}&limit=20`;
+                if (currentStatus) url += `&status=${currentStatus}`;
+                const res = await API.request(url);
+                const rows = res.items || [];
+                const total = res.total || 0;
+                const totalPages = Math.max(1, Math.ceil(total / 20));
+
+                const statusBadge = (s) => {
+                    const map = { pending: "badge-warning", sending: "badge-info", done: "badge-success", failed: "badge-danger" };
+                    const label = { pending: "待处理", sending: "发送中", done: "已完成", failed: "失败" };
+                    return `<span class="badge ${map[s] || ''}">${label[s] || s}</span>`;
+                };
+
+                document.getElementById("tbody").innerHTML = rows.length === 0
+                    ? '<tr><td colspan="8" class="muted" style="text-align:center;">暂无记录</td></tr>'
+                    : rows.map(x => `
+    <tr>
+      <td>${x.id}</td>
+      <td>${x.mail_to}</td>
+      <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${x.subject}</td>
+      <td>${statusBadge(x.status)}</td>
+      <td>${x.attempts} / ${x.max_attempts}</td>
+      <td style="max-width:200px;font-size:var(--text-xs);color:var(--color-danger);">${x.last_error || "-"}</td>
+      <td>${x.created_at || "-"}</td>
+      <td>
+        ${x.status === "failed" ? `<button class="btn btn-primary btn-sm" onclick="retryJob(${x.id})">重试</button>` : ""}
+        <button class="btn btn-danger btn-sm" onclick="deleteJob(${x.id})">删除</button>
+      </td>
+    </tr>
+  `).join("");
+
+                // 分页
+                let btns = '';
+                btns += `<button class="btn btn-secondary btn-sm" onclick="goPage(${currentPage - 1})" ${currentPage <= 1 ? 'disabled' : ''}>上一页</button>`;
+                btns += `<span style="font-size:var(--text-sm);">第 ${currentPage} / ${totalPages} 页</span>`;
+                btns += `<button class="btn btn-secondary btn-sm" onclick="goPage(${currentPage + 1})" ${currentPage >= totalPages ? 'disabled' : ''}>下一页</button>`;
+                document.getElementById("pagination").innerHTML = `<span class="muted" style="font-size:var(--text-sm);">共 ${total} 条</span><div style="display:flex;gap:8px;align-items:center;">${btns}</div>`;
+            } catch (e) {
+                toast(e.message, true);
+            }
+        }
+
+        function goPage(p) {
+            currentPage = p;
+            loadQueue();
+        }
+
+        async function retryJob(id) {
+            try {
+                await API.request(`/api/mail-queue/${id}/retry`, { method: "POST" });
+                toast("已重新加入队列", false);
+                loadQueue();
+            } catch (e) {
+                toast(e.message, true);
+            }
+        }
+
+        async function deleteJob(id) {
+            if (!confirm("确认删除该任务？")) return;
+            try {
+                await API.request(`/api/mail-queue/${id}`, { method: "DELETE" });
+                toast("已删除", false);
+                loadQueue();
+            } catch (e) {
+                toast(e.message, true);
+            }
+        }
+
+        function toggleAutoRefresh() {
+            if (refreshTimer) {
+                clearInterval(refreshTimer);
+                refreshTimer = null;
+            }
+            if (document.getElementById("autoRefresh").checked) {
+                refreshTimer = setInterval(loadQueue, 30000);
+            }
+        }
+
+        initPage();
+    </script>
+</body>
+</html>

@@ -1,0 +1,284 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title id="pageTitle">Formail - 文档</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/assets/css/style.css" />
+    <link rel="stylesheet" href="/assets/css/marketing.css" />
+    <style>
+        .btn-primary {
+            background: linear-gradient(135deg, #ffffff 0%, #f1f5f9 100%);
+            color: #1e293b;
+            border: none;
+            font-weight: 600;
+        }
+        .btn-primary:hover {
+            background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+            color: #0f172a;
+        }
+    </style>
+</head>
+<body class="marketing">
+    <div class="marketing-shell">
+        <header class="m-nav">
+            <a href="/" class="logo" id="docsLogo" aria-label="Formail Home">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>
+                </svg>
+                <span id="docsSiteName">Formail</span>
+            </a>
+            <nav class="links">
+                <a href="/">首页</a>
+                <a href="/dashboard/forms" id="dashboardLink" style="display: none;">控制台</a>
+                <a class="btn btn-primary" href="/login">登录</a>
+            </nav>
+        </header>
+
+        <div class="docs-layout">
+            <aside class="docs-toc m-card">
+                <strong>文档目录</strong>
+                <a href="#quickstart" class="active">快速开始</a>
+                <a href="#html">HTML 接入</a>
+                <a href="#json">JSON 提交</a>
+                <a href="#email-verification">邮箱验证</a>
+                <a href="#security">安全防护</a>
+                <a href="#success-page">成功页面</a>
+                <a href="#channels">渠道策略</a>
+                <a href="#api">常见 API</a>
+            </aside>
+
+            <main class="docs-main">
+                <section id="quickstart" class="block m-card">
+                    <h2>快速开始</h2>
+                    <ol>
+                        <li>访问 <code>/login</code> 登录后台。</li>
+                        <li>在 <code>/dashboard/forms</code> 创建表单，系统会自动发送验证邮件到接收邮箱。</li>
+                        <li>点击验证邮件中的链接完成邮箱验证，表单才能生效。</li>
+                        <li>在 <code>/dashboard/channels</code> 配置 SMTP 并测试。</li>
+                        <li>在 <code>/dashboard/submissions</code> 监控提交记录。</li>
+                    </ol>
+                </section>
+
+                <section id="html" class="block m-card">
+                    <h2>HTML 接入</h2>
+                    <pre class="code-slab">&lt;form action="https://your-domain/f/YOUR_FORM_TOKEN" method="POST"&gt;
+  &lt;input name="name" required /&gt;
+  &lt;input name="email" type="email" required /&gt;
+  &lt;textarea name="message" required&gt;&lt;/textarea&gt;
+  &lt;input type="text" name="_gotcha" style="display:none" /&gt;
+  &lt;button type="submit"&gt;提交&lt;/button&gt;
+&lt;/form&gt;</pre>
+                    <p class="muted">建议保留 <code>_gotcha</code> 蜜罐字段防机器人。</p>
+                </section>
+
+                <section id="json" class="block m-card">
+                    <h2>JSON 提交</h2>
+                    <pre class="code-slab">fetch("https://your-domain/f/YOUR_FORM_TOKEN", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ 
+    name: "Alice", 
+    email: "alice@example.com", 
+    message: "Hi" 
+  })
+});</pre>
+                </section>
+
+                <section id="email-verification" class="block m-card">
+                    <h2>邮箱验证</h2>
+                    <p>创建表单后，系统会自动向接收邮箱发送验证邮件。只有完成验证的邮箱才能接收表单提交。</p>
+                    <h3 style="font-size: var(--text-base); margin-top: var(--space-md);">验证流程</h3>
+                    <ol>
+                        <li>创建表单时输入接收邮箱</li>
+                        <li>系统自动发送验证邮件</li>
+                        <li>点击邮件中的验证链接</li>
+                        <li>邮箱验证通过，表单开始生效</li>
+                    </ol>
+                    <h3 style="font-size: var(--text-base); margin-top: var(--space-md);">注意事项</h3>
+                    <ul>
+                        <li>修改接收邮箱后需要重新验证</li>
+                        <li>未验证的邮箱无法接收表单提交</li>
+                        <li>验证链接有效期为永久有效</li>
+                    </ul>
+                </section>
+
+                <section id="security" class="block m-card">
+                    <h2>安全防护</h2>
+                    <h3 style="font-size: var(--text-base); margin-top: var(--space-md);">来源域名白名单</h3>
+                    <p>可以在表单设置中配置允许提交的来源域名，防止表单地址被滥用。</p>
+                    <pre class="code-slab"># 配置示例
+允许的来源域名:
+- https://example.com
+- https://www.example.com
+- https://*.example.com (支持通配符)</pre>
+                    <h3 style="font-size: var(--text-base); margin-top: var(--space-md);">蜜罐字段</h3>
+                    <p>表单中添加隐藏字段，机器人会填写但人类不会，用于识别自动化提交。</p>
+                    <pre class="code-slab">&lt;input type="text" name="_gotcha" style="display:none" /&gt;</pre>
+                    <h3 style="font-size: var(--text-base); margin-top: var(--space-md);">请求频率限制</h3>
+                    <p>系统自动限制同一IP的提交频率，默认每5秒最多提交一次。</p>
+                </section>
+
+                <section id="success-page" class="block m-card">
+                    <h2>成功页面</h2>
+                    <p>表单提交成功后，可以显示自定义的成功提示页面，支持多种主题样式。</p>
+                    <h3 style="font-size: var(--text-base); margin-top: var(--space-md);">主题选项</h3>
+                    <ul>
+                        <li><strong>蓝色经典</strong> - 专业稳重的蓝色渐变</li>
+                        <li><strong>绿色清新</strong> - 自然舒适的绿色渐变</li>
+                        <li><strong>紫色优雅</strong> - 高贵典雅的紫色渐变</li>
+                        <li><strong>橙色活力</strong> - 热情活力的橙色渐变</li>
+                        <li><strong>深色简约</strong> - 现代感深色主题</li>
+                    </ul>
+                    <h3 style="font-size: var(--text-base); margin-top: var(--space-md);">配置选项</h3>
+                    <ul>
+                        <li><strong>成功文案</strong> - 提交成功后显示的自定义消息</li>
+                        <li><strong>成功跳转URL</strong> - 成功提示后自动跳转的地址</li>
+                        <li><strong>主题选择</strong> - 选择成功页面的外观主题</li>
+                    </ul>
+                    <p class="muted">如果成功文案留空，将直接跳转到跳转URL，不显示成功页面。</p>
+                </section>
+
+                <section id="channels" class="block m-card">
+                    <h2>渠道策略</h2>
+                    <ul>
+                        <li>表单可绑定指定渠道，优先使用绑定渠道发送。</li>
+                        <li>绑定渠道失败自动回退到用户可用渠道。</li>
+                        <li>管理员可共享部分渠道给普通用户，并设置共享限制。</li>
+                        <li>渠道优先级数字越小越优先。</li>
+                    </ul>
+                </section>
+
+                <section id="api" class="block m-card">
+                    <h2>常见 API</h2>
+                    <h3 style="font-size: var(--text-base); margin-top: var(--space-md);">公开接口</h3>
+                    <ul>
+                        <li><code>POST /api/auth/login</code> - 密码登录</li>
+                        <li><code>POST /api/auth/login-code</code> - 邮箱验证码登录</li>
+                        <li><code>POST /api/auth/send-code</code> - 发送邮箱验证码</li>
+                        <li><code>POST /api/auth/register</code> - 邮箱验证码注册</li>
+                        <li><code>POST /f/:token</code> - 静态表单提交</li>
+                        <li><code>GET /verify/:token</code> - 邮箱验证</li>
+                    </ul>
+                    <h3 style="font-size: var(--text-base); margin-top: var(--space-md);">需鉴权接口</h3>
+                    <p class="muted" style="margin-bottom: var(--space-sm);">需在请求头添加 <code>Authorization: Bearer &lt;token&gt;</code></p>
+                    <ul>
+                        <li><code>GET /api/auth/me</code> - 获取当前用户信息</li>
+                        <li><code>POST /api/auth/change-password</code> - 修改密码</li>
+                        <li><code>GET /api/forms</code> - 当前用户表单列表</li>
+                        <li><code>POST /api/forms</code> - 创建表单</li>
+                        <li><code>PUT /api/forms/:id</code> - 更新表单</li>
+                        <li><code>DELETE /api/forms/:id</code> - 删除表单</li>
+                        <li><code>GET /api/channels</code> - 当前用户渠道列表</li>
+                        <li><code>POST /api/channels</code> - 创建渠道</li>
+                        <li><code>GET /api/submissions</code> - 提交记录列表</li>
+                        <li><code>DELETE /api/submissions/:id</code> - 删除提交记录</li>
+                        <li><code>GET /api/submissions/export</code> - 导出提交记录</li>
+                    </ul>
+                </section>
+            </main>
+        </div>
+
+        <footer class="m-footer">
+            <div class="m-footer-content">
+                <div class="m-footer-section">
+                    <h4>产品</h4>
+                    <ul>
+                        <li><a href="/docs">文档</a></li>
+                        <li><a href="/dashboard/forms">控制台</a></li>
+                        <li><a href="/">功能特性</a></li>
+                    </ul>
+                </div>
+                <div class="m-footer-section">
+                    <h4>资源</h4>
+                    <ul>
+                        <li><a href="/docs">API 参考</a></li>
+                        <li><a href="/docs">示例</a></li>
+                        <li><a href="/docs">指南</a></li>
+                    </ul>
+                </div>
+                <div class="m-footer-section">
+                    <h4>公司</h4>
+                    <ul>
+                        <li><a href="#">关于</a></li>
+                        <li><a href="#">隐私</a></li>
+                        <li><a href="#">条款</a></li>
+                    </ul>
+                </div>
+                <div class="m-footer-section">
+                    <h4>支持</h4>
+                    <ul>
+                        <li><a href="/docs">帮助中心</a></li>
+                        <li><a href="#">联系我们</a></li>
+                        <li><a href="#">社区</a></li>
+                    </ul>
+                </div>
+            </div>
+            <div class="m-footer-copyright">
+                Formail - 开发者首选的表单解决方案
+            </div>
+        </footer>
+    </div>
+    <script>
+        document.querySelectorAll('.docs-toc a').forEach(link => {
+            link.addEventListener('click', (e) => {
+                e.preventDefault();
+                document.querySelectorAll('.docs-toc a').forEach(a => a.classList.remove('active'));
+                link.classList.add('active');
+                const target = document.querySelector(link.getAttribute('href'));
+                if (target) {
+                    target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
+            });
+        });
+
+        function checkLoginStatus() {
+            const token = localStorage.getItem('formail_token');
+            const dashboardLink = document.getElementById('dashboardLink');
+            if (token) {
+                dashboardLink.style.display = 'inline-block';
+            }
+        }
+
+        async function loadSiteSettings() {
+            try {
+                const response = await fetch('/api/site-settings');
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.data) {
+                        const settings = data.data;
+                        
+                        if (settings.site_title) {
+                            document.getElementById('pageTitle').textContent = settings.site_title + ' - 文档';
+                            document.getElementById('docsSiteName').textContent = settings.site_title;
+                        }
+                        
+                        if (settings.logo_url) {
+                            const logoEl = document.getElementById('docsLogo');
+                            logoEl.innerHTML = `<img src="${settings.logo_url}" alt="Logo" style="height: 28px;" />`;
+                        } else if (settings.site_title) {
+                            const logoEl = document.getElementById('docsLogo');
+                            logoEl.innerHTML = `<span style="font-size: 1.25rem; font-weight: 700;">${settings.site_title}</span>`;
+                        }
+                        
+                        if (settings.favicon_url) {
+                            const favicon = document.querySelector('link[rel="icon"]');
+                            if (favicon) {
+                                favicon.href = settings.favicon_url;
+                            }
+                        }
+                    }
+                }
+            } catch (e) {
+                console.log('加载站点设置失败:', e);
+            }
+        }
+
+        checkLoginStatus();
+        loadSiteSettings();
+    </script>
+</body>
+</html>

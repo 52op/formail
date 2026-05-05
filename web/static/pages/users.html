@@ -1,0 +1,354 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Formail - 用户管理</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/assets/css/style.css" />
+</head>
+<body>
+    <script src="/assets/js/api.js"></script>
+    <script src="/assets/js/layout.js"></script>
+    <script>
+        requireAuth();
+        if (!isAdmin()) {
+            alert("仅管理员可访问该页面");
+            location.href = "/dashboard/forms";
+        }
+
+        const cache = [];
+        const v = (id) => document.getElementById(id).value;
+        const setv = (id, val) => (document.getElementById(id).value = val ?? "");
+
+        async function initPage() {
+            await renderLayout(
+                "users",
+                "用户管理",
+                `
+  <section class="card">
+    <div class="card-header">
+      <h3 class="card-title">用户列表</h3>
+      <button class="btn btn-primary" onclick="resetEditor(); scrollToEditor();">新增用户</button>
+    </div>
+    <table>
+      <thead><tr><th>ID</th><th>用户名</th><th>显示名</th><th>邮箱</th><th>角色</th><th>状态</th><th>创建时间</th><th>操作</th></tr></thead>
+      <tbody id="tbody"></tbody>
+    </table>
+  </section>
+
+  <section class="card" id="editorCard">
+    <div class="card-header">
+      <h3 class="card-title" id="editorTitle">新增用户</h3>
+      <button class="btn btn-secondary" onclick="resetEditor()">重置</button>
+    </div>
+    <input type="hidden" id="uid" />
+    <div class="grid">
+      <div class="form-group"><label>用户名（邮箱）</label><input id="username" /></div>
+      <div class="form-group"><label>初始密码（编辑时可留空）</label><input id="password" type="password" /></div>
+      <div class="form-group"><label>角色</label><select id="role"><option value="user">普通用户</option><option value="admin">管理员</option></select></div>
+      <div class="form-group"><label>状态</label><select id="status"><option value="1">启用</option><option value="0">禁用</option></select></div>
+      <div class="form-group"><label>显示名</label><input id="display_name" /></div>
+      <div class="form-group"><label>邮箱</label><input id="email" /></div>
+    </div>
+    <div class="actions" style="margin-top: var(--space-lg);">
+      <button class="btn btn-primary" id="saveBtn">保存用户</button>
+      <button class="btn btn-secondary" onclick="resetEditor()">重置</button>
+    </div>
+  </section>
+
+  <section class="card" id="settingsCard">
+    <div class="card-header">
+      <h3 class="card-title">注册与审核设置</h3>
+    </div>
+    <div class="grid">
+      <div class="form-group">
+        <label class="checkbox-label">
+          <input id="allow_register" type="checkbox" />
+          允许公开注册普通用户
+        </label>
+      </div>
+      <div class="form-group">
+        <label>新用户默认状态</label>
+        <select id="register_default_status">
+          <option value="1">启用（可直接登录）</option>
+          <option value="0">待审核</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>管理员通知邮箱</label>
+        <input id="admin_notify_email" placeholder="admin@example.com，可为空" />
+      </div>
+      <div class="form-group">
+        <label>验证码邮件主题模板</label>
+        <input id="email_code_subject_template" placeholder="Formail 验证码" />
+      </div>
+      <div class="form-group">
+        <label>验证码邮件正文模板</label>
+        <textarea id="email_code_body_template" rows="3"></textarea>
+      </div>
+      <div class="form-group">
+        <label>邮件签名</label>
+        <textarea id="email_signature" rows="3"></textarea>
+      </div>
+      <div class="form-group">
+        <label>验证码发送冷却秒数</label>
+        <input id="email_code_cooldown_seconds" type="number" value="60" />
+      </div>
+      <div class="form-group">
+        <label class="checkbox-label">
+          <input id="captcha_enabled" type="checkbox" />
+          启用图形验证码
+        </label>
+      </div>
+      <div class="form-group">
+        <label>验证码模式</label>
+        <select id="captcha_mode">
+          <option value="click_text">文字点选</option>
+          <option value="click_shape">图形点选</option>
+          <option value="slide">滑动验证</option>
+          <option value="drag">拖拽滑块</option>
+          <option value="rotate">旋转验证</option>
+          <option value="random">随机</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>图形验证码有效期（秒）</label>
+        <input id="captcha_ttl_seconds" type="number" value="180" />
+      </div>
+      <div class="form-group">
+        <label>图形验证码最大失败次数</label>
+        <input id="captcha_failure_limit" type="number" value="5" />
+      </div>
+      <div class="form-group">
+        <label>设备指纹10分钟最大请求数</label>
+        <input id="fingerprint_max_requests_10m" type="number" value="30" />
+      </div>
+      <div class="form-group">
+        <label>服务邮件发送渠道</label>
+        <select id="service_mail_channel_id">
+          <option value="0">自动选择（优先级最高）</option>
+        </select>
+      </div>
+    </div>
+    <div class="actions" style="margin-top: var(--space-lg);">
+      <button class="btn btn-primary" id="saveRegSwitchBtn">保存设置</button>
+    </div>
+  </section>
+`,
+            );
+
+            document.getElementById("saveBtn").onclick = async () => {
+                try {
+                    const id = v("uid");
+                    if (!v("username").trim()) {
+                        toast("请输入用户名", true);
+                        return;
+                    }
+                    if (!id && !v("password").trim()) {
+                        toast("新增用户需要设置初始密码", true);
+                        return;
+                    }
+                    if (id) {
+                        await API.request(`/api/users/${id}`, {
+                            method: "PUT",
+                            body: JSON.stringify({
+                                role: v("role"),
+                                status: Number(v("status")),
+                                display_name: v("display_name"),
+                                email: v("email"),
+                            }),
+                        });
+                        if (v("password"))
+                            await API.request(`/api/users/${id}/reset-password`, {
+                                method: "POST",
+                                body: JSON.stringify({ new_password: v("password") }),
+                            });
+                    } else {
+                        await API.request("/api/users", {
+                            method: "POST",
+                            body: JSON.stringify({
+                                username: v("username"),
+                                password: v("password"),
+                                role: v("role"),
+                                status: Number(v("status")),
+                                display_name: v("display_name"),
+                                email: v("email"),
+                            }),
+                        });
+                    }
+                    toast(id ? "用户已更新" : "用户已创建", false);
+                    resetEditor();
+                    load();
+                } catch (e) {
+                    toast(e.message, true);
+                }
+            };
+
+            document.getElementById("saveRegSwitchBtn").onclick = async () => {
+                try {
+                    await API.request("/api/settings/registration", {
+                        method: "PUT",
+                        body: JSON.stringify({
+                            allow_register: document.getElementById("allow_register").checked,
+                            register_default_status: Number(v("register_default_status")),
+                            admin_notify_email: v("admin_notify_email").trim(),
+                            email_code_subject_template: v("email_code_subject_template"),
+                            email_code_body_template: v("email_code_body_template"),
+                            email_signature: v("email_signature"),
+                            email_code_cooldown_seconds: Number(v("email_code_cooldown_seconds") || 60),
+                            captcha_enabled: document.getElementById("captcha_enabled").checked,
+                            captcha_mode: document.getElementById("captcha_mode").value,
+                            captcha_ttl_seconds: Number(v("captcha_ttl_seconds") || 180),
+                            captcha_failure_limit: Number(v("captcha_failure_limit") || 5),
+                            fingerprint_max_requests_10m: Number(v("fingerprint_max_requests_10m") || 30),
+                            service_mail_channel_id: Number(v("service_mail_channel_id") || 0),
+                        }),
+                    });
+                    toast("注册设置已保存", false);
+                } catch (e) {
+                    toast(e.message, true);
+                }
+            };
+
+            resetEditor();
+            loadChannelOptions()
+                .then(() => loadRegSwitch())
+                .catch((e) => toast(e.message, true));
+            load().catch((e) => toast(e.message, true));
+        }
+
+        function resetEditor() {
+            setv("uid", "");
+            setv("username", "");
+            setv("password", "");
+            setv("role", "user");
+            setv("status", "1");
+            setv("display_name", "");
+            setv("email", "");
+            document.getElementById("username").disabled = false;
+            document.getElementById("editorTitle").innerText = "新增用户";
+            document.getElementById("saveBtn").innerText = "保存用户";
+        }
+
+        function editById(id) {
+            const x = cache.find((i) => i.id === id);
+            if (!x) return;
+            setv("uid", x.id);
+            setv("username", x.username);
+            setv("password", "");
+            setv("role", x.role || "user");
+            setv("status", String(x.status ?? 1));
+            setv("display_name", x.display_name || "");
+            setv("email", x.email || "");
+            document.getElementById("username").disabled = true;
+            document.getElementById("editorTitle").innerText = `编辑用户 #${x.id}`;
+            document.getElementById("saveBtn").innerText = "更新用户";
+            scrollToEditor();
+        }
+
+        function scrollToEditor() {
+            const editorCard = document.getElementById("editorCard");
+            if (editorCard) {
+                editorCard.scrollIntoView({ behavior: "smooth", block: "start" });
+            }
+        }
+
+        async function loadChannelOptions() {
+            const channels = await API.request("/api/channels");
+            const sel = document.getElementById("service_mail_channel_id");
+            const keep = sel.value || "0";
+            sel.innerHTML =
+                '<option value="0">自动选择（优先级最高）</option>' +
+                channels
+                    .map(
+                        (c) =>
+                            `<option value="${c.id}">#${c.id} ${c.name} (${c.enabled ? "启用" : "禁用"}, P=${c.priority})</option>`,
+                    )
+                    .join("");
+            sel.value = keep;
+        }
+
+        async function loadRegSwitch() {
+            const s = await API.request("/api/settings/registration");
+            document.getElementById("allow_register").checked = !!s.allow_register;
+            setv("register_default_status", String(s.register_default_status ?? 1));
+            setv("admin_notify_email", s.admin_notify_email || "");
+            setv("email_code_subject_template", s.email_code_subject_template || "Formail 验证码");
+            setv("email_code_body_template", s.email_code_body_template || "你的验证码是: {{code}}\n用途: {{purpose}}\n{{ttl_minutes}}分钟内有效。若非本人操作请忽略。");
+            setv("email_signature", s.email_signature || "--\nFormail Team");
+            setv("email_code_cooldown_seconds", String(s.email_code_cooldown_seconds || "60"));
+            document.getElementById("captcha_enabled").checked = !!s.captcha_enabled;
+            setv("captcha_mode", s.captcha_mode || "click_text");
+            setv("captcha_ttl_seconds", String(s.captcha_ttl_seconds || "180"));
+            setv("captcha_failure_limit", String(s.captcha_failure_limit || "5"));
+            setv("fingerprint_max_requests_10m", String(s.fingerprint_max_requests_10m || "30"));
+            setv("service_mail_channel_id", String(s.service_mail_channel_id || 0));
+        }
+
+        async function load() {
+            const rows = await API.request("/api/users");
+            cache.splice(0, cache.length, ...rows);
+            document.getElementById("tbody").innerHTML = rows
+                .map(
+                    (x) => `
+    <tr>
+      <td>${x.id}</td>
+      <td>${x.username}</td>
+      <td>${x.display_name || "-"}</td>
+      <td>${x.email || "-"}</td>
+      <td>${x.role === "admin" ? '<span class="badge badge-warning">管理员</span>' : '<span class="badge badge-info">普通用户</span>'}</td>
+      <td>${x.status === 1 ? '<span class="badge badge-success">启用</span>' : '<span class="badge badge-danger">待审核/禁用</span>'}</td>
+      <td>${x.created_at || "-"}</td>
+      <td class="actions">
+        <button class="btn btn-primary btn-sm" onclick="editById(${x.id})">编辑</button>
+        ${x.status === 0 ? `<button class="btn btn-success btn-sm" onclick="approveById(${x.id})">审核通过</button><button class="btn btn-danger btn-sm" onclick="rejectById(${x.id})">审核拒绝</button>` : ""}
+        <button class="btn btn-warning btn-sm" onclick="resetPwd(${x.id})">重置密码</button>
+        <button class="btn btn-danger btn-sm" onclick="delById(${x.id})">删除</button>
+      </td>
+    </tr>
+  `,
+                    )
+                .join("");
+        }
+
+        async function approveById(id) {
+            await API.request(`/api/users/${id}/approve`, { method: "POST" });
+            toast("已审核通过", false);
+            load();
+        }
+        
+        async function rejectById(id) {
+            if (!confirm("确认拒绝并删除该待审核用户？")) return;
+            await API.request(`/api/users/${id}/reject`, { method: "POST" });
+            toast("已拒绝", false);
+            load();
+        }
+        
+        async function delById(id) {
+            if (!confirm("确认删除该用户？此操作不可撤销。")) return;
+            await API.request(`/api/users/${id}`, { method: "DELETE" });
+            toast("用户已删除", false);
+            load();
+        }
+        
+        async function resetPwd(id) {
+            const p = prompt("请输入新密码（至少6位）");
+            if (!p) return;
+            if (p.length < 6) {
+                toast("密码至少需要6位", true);
+                return;
+            }
+            await API.request(`/api/users/${id}/reset-password`, {
+                method: "POST",
+                body: JSON.stringify({ new_password: p }),
+            });
+            toast("密码已重置", false);
+        }
+
+        initPage();
+    </script>
+</body>
+</html>

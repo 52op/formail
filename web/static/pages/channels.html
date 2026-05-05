@@ -1,0 +1,244 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Formail - 邮件渠道</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/assets/css/style.css" />
+</head>
+<body>
+    <script src="/assets/js/api.js"></script>
+    <script src="/assets/js/layout.js"></script>
+    <script>
+        requireAuth();
+
+        const cache = [];
+        const v = (id) => document.getElementById(id).value;
+        const setv = (id, val) => (document.getElementById(id).value = val ?? "");
+
+        function payload() {
+            const admin = isAdmin();
+            return {
+                name: v("name"),
+                type: v("type"),
+                provider: v("provider"),
+                protocol: v("protocol"),
+                host: v("host"),
+                port: Number(v("port") || 0),
+                username: v("username"),
+                password: v("password"),
+                from_email: v("from_email"),
+                use_tls: v("use_tls") === "true",
+                priority: Number(v("priority") || 100),
+                enabled: v("enabled") === "true",
+                share_enabled: admin ? v("share_enabled") === "true" : false,
+                share_max_bindings_per_user: admin ? Number(v("share_max_bindings_per_user") || 0) : 0,
+                share_max_total_bindings: admin ? Number(v("share_max_total_bindings") || 0) : 0,
+            };
+        }
+
+        async function initPage() {
+            await renderLayout(
+                "channels",
+                "邮件渠道配置",
+                `
+  <section class="card">
+    <div class="card-header">
+      <h3 class="card-title">渠道列表</h3>
+      <button class="btn btn-primary" onclick="resetEditor(); scrollToEditor();">新增渠道</button>
+    </div>
+    <table>
+      <thead><tr><th>ID</th><th>名称</th><th>类型</th><th>协议</th><th>账号</th><th>优先级</th><th>状态</th><th>操作</th></tr></thead>
+      <tbody id="tbody"></tbody>
+    </table>
+  </section>
+
+  <section class="card" id="editorCard">
+    <div class="card-header">
+      <h3 class="card-title" id="title">新增渠道</h3>
+      <button class="btn btn-secondary" onclick="resetEditor()">重置</button>
+    </div>
+    <input type="hidden" id="cid" />
+    <div class="grid">
+      <div class="form-group"><label>渠道名称</label><input id="name" placeholder="例如：QQ主通道" /></div>
+      <div class="form-group"><label>类型</label><select id="type"><option value="builtin">内置邮箱</option><option value="custom">自定义</option></select></div>
+      <div class="form-group"><label>内置服务商</label><select id="provider"><option value="qq">QQ</option><option value="163">163</option><option value="outlook">Outlook/Hotmail</option><option value="">(自定义时留空)</option></select></div>
+      <div class="form-group"><label>协议</label><select id="protocol"><option value="smtp">SMTP</option><option value="imap">IMAP(仅连通性测试)</option></select></div>
+      <div class="form-group"><label>Host</label><input id="host" placeholder="smtp.example.com" /></div>
+      <div class="form-group"><label>Port</label><input id="port" type="number" value="465" /></div>
+      <div class="form-group"><label>用户名</label><input id="username" /></div>
+      <div class="form-group"><label>授权码 / 密码</label><input id="password" type="password" placeholder="填写后才会更新密码" /></div>
+      <div class="form-group"><label>发件邮箱</label><input id="from_email" placeholder="可为空，默认使用用户名" /></div>
+      <div class="form-group"><label>TLS/SSL</label><select id="use_tls"><option value="true">是</option><option value="false">否</option></select></div>
+      <div class="form-group"><label>优先级（越小越优先）</label><input id="priority" type="number" value="100" /></div>
+      <div class="form-group"><label>启用</label><select id="enabled"><option value="true">是</option><option value="false">否</option></select></div>
+    </div>
+    <div id="shareSettings" style="display: none; margin-top: var(--space-md); padding-top: var(--space-md); border-top: 1px solid var(--color-gray-100);">
+      <h4 style="margin: 0 0 var(--space-md); font-size: var(--text-sm); font-weight: 600; color: var(--color-gray-700);">共享设置（管理员）</h4>
+      <div class="grid">
+        <div class="form-group"><label>允许普通用户共享使用</label><select id="share_enabled"><option value="false">否</option><option value="true">是</option></select></div>
+        <div class="form-group"><label>每个普通用户最大绑定数（0=不限）</label><input id="share_max_bindings_per_user" type="number" value="0" /></div>
+        <div class="form-group"><label>共享总绑定上限（0=不限）</label><input id="share_max_total_bindings" type="number" value="0" /></div>
+      </div>
+    </div>
+    <div class="actions" style="margin-top: var(--space-lg);">
+      <button class="btn btn-primary" id="saveBtn">保存渠道</button>
+      <button class="btn btn-secondary" onclick="resetEditor()">重置</button>
+    </div>
+  </section>
+`,
+            );
+
+            document.getElementById("saveBtn").onclick = async () => {
+                try {
+                    const id = v("cid");
+                    const p = payload();
+                    if (!p.name.trim()) {
+                        toast("请输入渠道名称", true);
+                        return;
+                    }
+                    if (!p.username.trim()) {
+                        toast("请输入用户名", true);
+                        return;
+                    }
+                    if (!id && !p.password.trim()) {
+                        toast("请输入授权码/密码", true);
+                        return;
+                    }
+                    if (p.type === "builtin" && !p.provider.trim()) {
+                        toast("内置类型请选择服务商", true);
+                        return;
+                    }
+                    if (p.type === "custom" && (!p.host.trim() || !p.port)) {
+                        toast("自定义类型请填写 Host 和 Port", true);
+                        return;
+                    }
+                    if (id) {
+                        await API.request(`/api/channels/${id}`, { method: "PUT", body: JSON.stringify(p) });
+                        toast("渠道已更新", false);
+                    } else {
+                        await API.request("/api/channels", { method: "POST", body: JSON.stringify(p) });
+                        toast("渠道已创建", false);
+                    }
+                    resetEditor();
+                    load();
+                } catch (e) {
+                    toast(e.message, true);
+                }
+            };
+
+            if (isAdmin()) {
+                document.getElementById("shareSettings").style.display = "";
+            }
+            
+            load();
+        }
+
+        async function load() {
+            const rows = await API.request("/api/channels");
+            cache.splice(0, cache.length, ...rows);
+            document.getElementById("tbody").innerHTML = rows
+                .map(
+                    (x) => `<tr>
+    <td>${x.id}</td>
+    <td>${x.name}</td>
+    <td>${x.type}${x.provider ? `(${x.provider})` : ""}${isAdmin() ? `<br/><small class="muted">共享:${x.share_enabled ? "是" : "否"}</small>` : ""}</td>
+    <td>${x.protocol}</td>
+    <td>${x.username}</td>
+    <td>${x.priority}</td>
+    <td>${x.enabled ? '<span class="badge badge-success">启用</span>' : '<span class="badge badge-danger">禁用</span>'}</td>
+    <td class="actions">
+      <button class="btn btn-primary btn-sm" onclick="editById(${x.id})">编辑</button>
+      <button class="btn btn-success btn-sm" onclick="testById(${x.id})">测试</button>
+      <button class="btn btn-danger btn-sm" onclick="delById(${x.id})">删除</button>
+    </td>
+  </tr>`,
+                    )
+                .join("");
+        }
+
+        function editById(id) {
+            const x = cache.find((i) => i.id === id);
+            if (!x) return;
+            setv("cid", x.id);
+            setv("name", x.name);
+            setv("type", x.type);
+            setv("provider", x.provider || "");
+            setv("protocol", x.protocol || "smtp");
+            setv("host", x.host || "");
+            setv("port", x.port || 465);
+            setv("username", x.username || "");
+            setv("password", "");
+            setv("from_email", x.from_email || "");
+            setv("use_tls", String(!!x.use_tls));
+            setv("priority", x.priority || 100);
+            setv("enabled", String(!!x.enabled));
+            if (isAdmin()) {
+                setv("share_enabled", String(!!x.share_enabled));
+                setv("share_max_bindings_per_user", x.share_max_bindings_per_user || 0);
+                setv("share_max_total_bindings", x.share_max_total_bindings || 0);
+            }
+            document.getElementById("title").innerText = `编辑渠道 #${id}`;
+            document.getElementById("saveBtn").innerText = "更新渠道";
+            scrollToEditor();
+        }
+
+        function scrollToEditor() {
+            const editorCard = document.getElementById("editorCard");
+            if (editorCard) {
+                editorCard.scrollIntoView({ behavior: "smooth", block: "start" });
+            }
+        }
+
+        function resetEditor() {
+            setv("cid", "");
+            setv("name", "");
+            setv("type", "builtin");
+            setv("provider", "qq");
+            setv("protocol", "smtp");
+            setv("host", "");
+            setv("port", 465);
+            setv("username", "");
+            setv("password", "");
+            setv("from_email", "");
+            setv("use_tls", "true");
+            setv("priority", 100);
+            setv("enabled", "true");
+            setv("share_enabled", "false");
+            setv("share_max_bindings_per_user", 0);
+            setv("share_max_total_bindings", 0);
+            document.getElementById("title").innerText = "新增渠道";
+            document.getElementById("saveBtn").innerText = "保存渠道";
+        }
+
+        async function delById(id) {
+            if (!confirm("确认删除该渠道？此操作不可撤销。")) return;
+            await API.request(`/api/channels/${id}`, { method: "DELETE" });
+            toast("渠道已删除", false);
+            load();
+        }
+        
+        async function testById(id) {
+            try {
+                const btn = document.activeElement;
+                const originalText = btn.innerText;
+                btn.innerText = "测试中...";
+                btn.disabled = true;
+                await API.request(`/api/channels/${id}/test`, { method: "POST" });
+                toast("测试成功", false);
+            } catch (e) {
+                toast(e.message, true);
+            } finally {
+                const btn = document.activeElement;
+                btn.innerText = "测试";
+                btn.disabled = false;
+            }
+        }
+
+        initPage();
+    </script>
+</body>
+</html>

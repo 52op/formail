@@ -1,0 +1,295 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>站点设置 - Formail</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/assets/css/style.css" />
+</head>
+<body>
+    <script src="/assets/js/api.js"></script>
+    <script src="/assets/js/layout.js"></script>
+    <script>
+        requireAuth();
+        if (!isAdmin()) {
+            alert("仅管理员可访问该页面");
+            location.href = "/dashboard/forms";
+        }
+
+        const contentHTML = `
+  <section class="card">
+    <form id="settingsForm">
+      <div class="section">
+        <h2>网站基本信息</h2>
+        
+        <div class="form-row">
+          <div class="form-group">
+            <label>网站标题</label>
+            <input id="site_title" placeholder="请输入网站标题" />
+            <span class="form-hint">建议长度不超过50个字符</span>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label>Logo 图片</label>
+            <div class="upload-area" id="logo_upload">
+              <div class="upload-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 48px; height: 48px;">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                  <polyline points="17 8 12 3 7 8"/>
+                  <line x1="12" y1="3" x2="12" y2="15"/>
+                </svg>
+              </div>
+              <span>点击上传 Logo 图片</span>
+              <span class="upload-hint">支持 JPG、PNG、SVG 格式</span>
+            </div>
+            <input type="hidden" id="logo_url" />
+            <div id="logo_preview" style="display: none; margin-top: var(--space-sm);">
+              <img id="logo_img" style="max-width: 200px; max-height: 80px; object-fit: contain; border-radius: var(--radius-sm);" />
+              <button type="button" class="btn btn-danger btn-sm" style="margin-left: var(--space-md);" onclick="removeLogo()">删除 Logo</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label>网站图标 (Favicon)</label>
+            <div class="upload-area" id="favicon_upload">
+              <div class="upload-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 48px; height: 48px;">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                  <polyline points="17 8 12 3 7 8"/>
+                  <line x1="12" y1="3" x2="12" y2="15"/>
+                </svg>
+              </div>
+              <span>点击上传网站图标</span>
+              <span class="upload-hint">建议尺寸 32x32 或 16x16</span>
+            </div>
+            <input type="hidden" id="favicon_url" />
+            <div id="favicon_preview" style="display: none; margin-top: var(--space-sm);">
+              <img id="favicon_img" style="max-width: 64px; max-height: 64px; object-fit: contain; border-radius: var(--radius-sm);" />
+              <button type="button" class="btn btn-danger btn-sm" style="margin-left: var(--space-md);" onclick="removeFavicon()">删除图标</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="section">
+        <h2>SEO 信息</h2>
+        
+        <div class="form-row">
+          <div class="form-group">
+            <label>元标题</label>
+            <input id="meta_title" placeholder="网站的元标题" />
+            <span class="form-hint">建议长度不超过60个字符</span>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label>元描述</label>
+            <textarea id="meta_description" rows="3" placeholder="网站的元描述信息"></textarea>
+            <span class="form-hint">建议长度不超过160个字符</span>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label>元关键词</label>
+            <input id="meta_keywords" placeholder="关键词1, 关键词2, 关键词3" />
+            <span class="form-hint">多个关键词用英文逗号分隔</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="section">
+        <h2>页脚信息</h2>
+        
+        <div class="form-row">
+          <div class="form-group">
+            <label>版权信息</label>
+            <input id="copyright" placeholder="© 2024 Formail. All rights reserved." />
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label>页脚内容</label>
+            <textarea id="footer_content" rows="4" placeholder="支持 HTML 格式的页脚内容"></textarea>
+            <span class="form-hint">支持基本 HTML 标签</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="actions" style="justify-content: flex-end; margin-top: var(--space-xl);">
+        <button type="button" class="btn btn-secondary" onclick="resetForm()">重置</button>
+        <button type="submit" class="btn btn-primary">保存设置</button>
+      </div>
+    </form>
+  </section>
+            `;
+
+        async function initPage() {
+            await renderLayout("settings", "站点设置", contentHTML);
+
+            async function loadSettings() {
+            try {
+                const data = await API.request("/api/site-settings");
+                console.log("加载设置:", data);
+                setv("site_title", data.site_title || "");
+                setv("logo_url", data.logo_url || "");
+                setv("favicon_url", data.favicon_url || "");
+                setv("meta_title", data.meta_title || "");
+                setv("meta_description", data.meta_description || "");
+                setv("meta_keywords", data.meta_keywords || "");
+                setv("copyright", data.copyright || "");
+                setv("footer_content", data.footer_content || "");
+                
+                if (data.logo_url) {
+                    document.getElementById("logo_img").src = data.logo_url;
+                    document.getElementById("logo_preview").style.display = "flex";
+                    document.getElementById("logo_upload").style.display = "none";
+                }
+                if (data.favicon_url) {
+                    document.getElementById("favicon_img").src = data.favicon_url;
+                    document.getElementById("favicon_preview").style.display = "flex";
+                    document.getElementById("favicon_upload").style.display = "none";
+                }
+            } catch (e) {
+                console.error("加载设置失败:", e);
+                toast(e.message, true);
+            }
+        }
+
+        function setv(id, value) {
+            const el = document.getElementById(id);
+            if (el) el.value = value;
+        }
+
+        function removeLogo() {
+            document.getElementById("logo_url").value = "";
+            document.getElementById("logo_preview").style.display = "none";
+            document.getElementById("logo_upload").style.display = "flex";
+        }
+
+        function removeFavicon() {
+            document.getElementById("favicon_url").value = "";
+            document.getElementById("favicon_preview").style.display = "none";
+            document.getElementById("favicon_upload").style.display = "flex";
+        }
+
+        function resetForm() {
+            loadSettings();
+            toast("已重置", false);
+        }
+
+        document.getElementById("logo_upload").addEventListener("click", () => {
+            const input = document.createElement("input");
+            input.type = "file";
+            input.accept = "image/jpeg,image/png,image/svg+xml";
+            input.onchange = async (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+                
+                const formData = new FormData();
+                formData.append("file", file);
+                formData.append("type", "logo");
+                
+                try {
+                    const result = await API.request("/api/site-settings/upload", {
+                        method: "POST",
+                        body: formData
+                    });
+                    document.getElementById("logo_url").value = result.url;
+                    document.getElementById("logo_img").src = result.url;
+                    document.getElementById("logo_preview").style.display = "flex";
+                    document.getElementById("logo_upload").style.display = "none";
+                    toast("Logo 上传成功", false);
+                } catch (e) {
+                    toast(e.message, true);
+                }
+            };
+            input.click();
+        });
+
+        document.getElementById("favicon_upload").addEventListener("click", () => {
+            const input = document.createElement("input");
+            input.type = "file";
+            input.accept = "image/png,image/svg+xml,image/x-icon";
+            input.onchange = async (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+                
+                const formData = new FormData();
+                formData.append("file", file);
+                formData.append("type", "favicon");
+                
+                try {
+                    const result = await API.request("/api/site-settings/upload", {
+                        method: "POST",
+                        body: formData
+                    });
+                    document.getElementById("favicon_url").value = result.url;
+                    document.getElementById("favicon_img").src = result.url;
+                    document.getElementById("favicon_preview").style.display = "flex";
+                    document.getElementById("favicon_upload").style.display = "none";
+                    toast("网站图标上传成功", false);
+                } catch (e) {
+                    toast(e.message, true);
+                }
+            };
+            input.click();
+        });
+
+        document.getElementById("settingsForm").addEventListener("submit", async (e) => {
+            e.preventDefault();
+            
+            const payload = {
+                site_title: document.getElementById("site_title").value.trim(),
+                logo_url: document.getElementById("logo_url").value.trim(),
+                favicon_url: document.getElementById("favicon_url").value.trim(),
+                meta_title: document.getElementById("meta_title").value.trim(),
+                meta_description: document.getElementById("meta_description").value.trim(),
+                meta_keywords: document.getElementById("meta_keywords").value.trim(),
+                copyright: document.getElementById("copyright").value.trim(),
+                footer_content: document.getElementById("footer_content").value.trim()
+            };
+
+            if (payload.site_title.length > 50) {
+                toast("网站标题不能超过50个字符", true);
+                return;
+            }
+            if (payload.meta_title.length > 60) {
+                toast("元标题不能超过60个字符", true);
+                return;
+            }
+            if (payload.meta_description.length > 160) {
+                toast("元描述不能超过160个字符", true);
+                return;
+            }
+
+            try {
+                console.log("保存设置:", payload);
+                const result = await API.request("/api/site-settings", {
+                    method: "PUT",
+                    body: JSON.stringify(payload)
+                });
+                console.log("保存成功:", result);
+                toast("设置已保存", false);
+            } catch (e) {
+                console.error("保存失败:", e);
+                toast(e.message, true);
+            }
+        });
+
+        await loadSettings();
+    }
+
+    initPage();
+    </script>
+</body>
+</html>

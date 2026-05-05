@@ -1,0 +1,342 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Formail - 表单管理</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/assets/css/style.css" />
+    <style>
+        .theme-preview-container {
+            border: 1px solid var(--color-gray-200);
+            border-radius: var(--radius-lg);
+            overflow: hidden;
+            background: var(--color-gray-50);
+        }
+        .theme-preview-header {
+            padding: var(--space-md);
+            background: var(--color-gray-100);
+            border-bottom: 1px solid var(--color-gray-200);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .theme-preview-header h4 {
+            margin: 0;
+            font-size: var(--text-sm);
+            font-weight: 600;
+            color: var(--color-gray-700);
+        }
+        .theme-preview {
+            padding: var(--space-lg);
+            min-height: 300px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .preview-card {
+            background: white;
+            border-radius: 20px;
+            padding: 32px;
+            text-align: center;
+            box-shadow: 0 20px 60px rgba(59, 130, 246, 0.15);
+            max-width: 320px;
+            width: 100%;
+            animation: slideUp 0.3s ease-out;
+        }
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .preview-icon {
+            width: 64px;
+            height: 64px;
+            margin: 0 auto 16px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 8px 24px rgba(16, 185, 129, 0.3);
+        }
+        .preview-icon svg {
+            width: 32px;
+            height: 32px;
+            color: white;
+        }
+        .preview-card h3 {
+            margin: 0 0 8px;
+            font-size: var(--text-lg);
+            font-weight: 700;
+        }
+        .preview-card p {
+            margin: 0 0 20px;
+            font-size: var(--text-sm);
+            line-height: 1.5;
+        }
+        .preview-countdown {
+            font-size: var(--text-xs);
+            color: var(--color-gray-400);
+            margin-bottom: 12px;
+        }
+        .preview-link {
+            display: inline-block;
+            padding: 8px 16px;
+            border-radius: 8px;
+            color: white;
+            text-decoration: none;
+            font-size: var(--text-sm);
+            font-weight: 500;
+        }
+    </style>
+</head>
+<body>
+    <script src="/assets/js/api.js"></script>
+    <script src="/assets/js/layout.js"></script>
+    <script>
+        const themes = {
+            blue: {
+                name: '蓝色经典',
+                bgGradient: 'linear-gradient(135deg, #EEF2FF 0%, #F5F7FB 100%)',
+                iconGradient: 'linear-gradient(135deg, #3B82F6 0%, #2563EB 100%)',
+                buttonGradient: 'linear-gradient(135deg, #3B82F6 0%, #2563EB 100%)',
+                textColor: '#1F2937',
+                descColor: '#6B7280',
+                cardBg: 'white'
+            },
+            green: {
+                name: '绿色清新',
+                bgGradient: 'linear-gradient(135deg, #ECFDF5 0%, #D1FAE5 100%)',
+                iconGradient: 'linear-gradient(135deg, #10B981 0%, #059669 100%)',
+                buttonGradient: 'linear-gradient(135deg, #10B981 0%, #059669 100%)',
+                textColor: '#1F2937',
+                descColor: '#6B7280',
+                cardBg: 'white'
+            },
+            purple: {
+                name: '紫色优雅',
+                bgGradient: 'linear-gradient(135deg, #FAF5FF 0%, #F3E8FF 100%)',
+                iconGradient: 'linear-gradient(135deg, #8B5CF6 0%, #7C3AED 100%)',
+                buttonGradient: 'linear-gradient(135deg, #8B5CF6 0%, #7C3AED 100%)',
+                textColor: '#1F2937',
+                descColor: '#6B7280',
+                cardBg: 'white'
+            },
+            orange: {
+                name: '橙色活力',
+                bgGradient: 'linear-gradient(135deg, #FFF7ED 0%, #FFEDD5 100%)',
+                iconGradient: 'linear-gradient(135deg, #F97316 0%, #EA580C 100%)',
+                buttonGradient: 'linear-gradient(135deg, #F97316 0%, #EA580C 100%)',
+                textColor: '#1F2937',
+                descColor: '#6B7280',
+                cardBg: 'white'
+            },
+            dark: {
+                name: '深色简约',
+                bgGradient: 'linear-gradient(135deg, #1F2937 0%, #111827 100%)',
+                iconGradient: 'linear-gradient(135deg, #60A5FA 0%, #3B82F6 100%)',
+                buttonGradient: 'linear-gradient(135deg, #3B82F6 0%, #2563EB 100%)',
+                textColor: '#F9FAFB',
+                descColor: '#D1D5DB',
+                cardBg: '#374151'
+            }
+        };
+
+        requireAuth();
+
+        const formCache = [];
+        
+        function v(id) {
+            return document.getElementById(id).value;
+        }
+        
+        function setv(id, val) {
+            document.getElementById(id).value = val ?? "";
+        }
+
+        async function initPage() {
+            await renderLayout(
+                "forms",
+                "表单管理",
+                `
+  <section class="card">
+    <div class="card-header">
+      <h3 class="card-title">表单列表</h3>
+      <button class="btn btn-primary" onclick="resetFormEditor(); scrollToEditor();">新增表单</button>
+    </div>
+    <table>
+      <thead><tr><th>ID</th><th>名称</th><th>接收邮箱</th><th>邮箱验证</th><th>提交地址</th><th>状态</th><th>操作</th></tr></thead>
+      <tbody id="tbody"></tbody>
+    </table>
+  </section>
+
+  <section class="card" id="formEditorCard">
+    <div class="card-header">
+      <h3 class="card-title" id="formTitle">新建表单</h3>
+      <button class="btn btn-secondary" onclick="resetFormEditor()">重置</button>
+    </div>
+    <input type="hidden" id="fid" />
+    <div class="grid">
+      <div class="form-group"><label>表单名称</label><input id="name" placeholder="例如：联系表单" /></div>
+      <div class="form-group"><label>接收邮箱</label><input id="recipient_email" type="email" placeholder="recipient@example.com" /></div>
+      <div class="form-group"><label>绑定邮件渠道</label><select id="channel_id"><option value="0">自动（按优先级选择）</option></select></div>
+      <div class="form-group"><label>成功跳转 URL</label><input id="success_redirect" placeholder="可选，留空不跳转" /></div>
+      <div class="form-group"><label>成功文案</label><input id="success_message" placeholder="留空则不显示成功页面，直接跳转" oninput="updateThemePreview()" /></div>
+      <div class="form-group"><label>成功页面主题</label>
+        <select id="success_theme" onchange="updateThemePreview()">
+          <option value="blue">蓝色经典</option>
+          <option value="green">绿色清新</option>
+          <option value="purple">紫色优雅</option>
+          <option value="orange">橙色活力</option>
+          <option value="dark">深色简约</option>
+        </select>
+      </div>
+      <div class="form-group"><label>允许的来源域名</label><input id="allowed_origins" placeholder="留空允许所有来源，多个域名用逗号分隔，支持通配符如 https://*.example.com" /></div>
+      <div class="form-group"><label>是否启用</label><select id="active"><option value="true">启用</option><option value="false">禁用</option></select></div>
+    </div>
+    <div class="grid" style="margin-top: var(--space-md);">
+      <div class="form-group"><label>邮件主题模板</label><input id="email_subject_template" value="新表单提交: {{form_name}}" /></div>
+      <div class="form-group"><label>自动回复开关</label><select id="auto_reply_enabled"><option value="false">关闭</option><option value="true">开启</option></select></div>
+      <div class="form-group"><label>自动回复标题</label><input id="auto_reply_subject" value="已收到你的提交：{{form_name}}" /></div>
+    </div>
+    <div class="form-group" style="margin-top: var(--space-md);"><label>邮件正文模板</label><textarea id="email_body_template">{{fields}}</textarea></div>
+    <div class="form-group" style="margin-top: var(--space-md);"><label>自动回复正文</label><textarea id="auto_reply_body">感谢提交，我们已收到。</textarea></div>
+    
+    <div class="theme-preview-container" style="margin-top: var(--space-lg);">
+      <div class="theme-preview-header">
+        <h4>主题预览</h4>
+        <span id="currentThemeName" class="muted" style="font-size: var(--text-xs);">蓝色经典</span>
+      </div>
+      <div class="theme-preview" id="themePreview">
+        <div class="preview-card" id="previewCard">
+          <div class="preview-icon" id="previewIcon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+              <polyline points="20 6 9 17 4 12"/>
+            </svg>
+          </div>
+          <h3 id="previewTitle">提交成功</h3>
+          <p id="previewMessage">感谢您的提交，我们会尽快与您联系！</p>
+          <div class="preview-countdown">将在 <span>5</span> 秒后自动跳转...</div>
+          <a href="#" class="preview-link" id="previewLink">立即跳转</a>
+        </div>
+      </div>
+    </div>
+    
+    <div class="actions" style="margin-top: var(--space-lg);">
+      <button class="btn btn-primary" id="saveBtn">保存表单</button>
+      <button class="btn btn-secondary" onclick="resetFormEditor()">重置</button>
+    </div>
+  </section>
+`,
+            );
+
+            document.getElementById("saveBtn").onclick = async () => {
+                try {
+                    const id = v("fid");
+                    const p = formPayload();
+                    if (!p.name.trim()) {
+                        toast("请输入表单名称", true);
+                        return;
+                    }
+                    if (!p.recipient_email.trim()) {
+                        toast("请输入接收邮箱", true);
+                        return;
+                    }
+                    if (id)
+                        await API.request(`/api/forms/${id}`, {
+                            method: "PUT",
+                            body: JSON.stringify(p),
+                        });
+                    else
+                        await API.request("/api/forms", {
+                            method: "POST",
+                            body: JSON.stringify(p),
+                        });
+                    toast(id ? "表单已更新" : "表单已创建", false);
+                    resetFormEditor();
+                    loadForms();
+                } catch (e) {
+                    toast(e.message, true);
+                }
+            };
+
+            Promise.all([loadBindableChannels(), loadForms()]).then(() => {
+                updateThemePreview();
+            }).catch((e) => toast(e.message, true));
+        }
+
+        function formPayload() {
+            return {
+                name: v("name"),
+                recipient_email: v("recipient_email"),
+                channel_id: Number(v("channel_id") || 0),
+                success_redirect: v("success_redirect"),
+                success_message: v("success_message"),
+                success_theme: v("success_theme"),
+                allowed_origins: v("allowed_origins"),
+                honeypot_field: v("honeypot_field"),
+                email_subject_template: v("email_subject_template"),
+                email_body_template: v("email_body_template"),
+                auto_reply_enabled: v("auto_reply_enabled") === "true",
+                auto_reply_subject: v("auto_reply_subject"),
+                auto_reply_body: v("auto_reply_body"),
+                active: v("active") === "true",
+            };
+        }
+
+        function updateThemePreview() {
+            const theme = themes[v("success_theme")] || themes.blue;
+            const message = v("success_message") || "感谢您的提交，我们会尽快与您联系！";
+            const hasRedirect = v("success_redirect") !== "";
+            
+            document.getElementById('currentThemeName').innerText = theme.name;
+            document.getElementById('themePreview').style.background = theme.bgGradient;
+            document.getElementById('previewCard').style.background = theme.cardBg;
+            document.getElementById('previewIcon').style.background = theme.iconGradient;
+            document.getElementById('previewTitle').style.color = theme.textColor;
+            document.getElementById('previewMessage').style.color = theme.descColor;
+            document.getElementById('previewLink').style.background = theme.buttonGradient;
+            document.getElementById('previewMessage').innerText = message;
+            
+            const countdown = document.querySelector('.preview-countdown');
+            const link = document.getElementById('previewLink');
+            
+            if (hasRedirect) {
+                countdown.style.display = 'block';
+                link.style.display = 'inline-block';
+            } else {
+                countdown.style.display = 'none';
+                link.style.display = 'none';
+            }
+        }
+
+        function scrollToEditor() {
+            const editorCard = document.getElementById('formEditorCard');
+            if (editorCard) {
+                editorCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+        }
+
+        async function loadBindableChannels() {
+            const rows = await API.request("/api/channels/bindable");
+            const sel = document.getElementById("channel_id");
+            const keep = sel.value || "0";
+            sel.innerHTML =
+                '<option value="0">自动（按优先级选择）</option>' +
+                rows
+                    .filter((x) => !!x.can_use)
+                    .map(
+                        (x) =>
+                            `<option value="${x.id}">#${x.id} ${x.name} [${x.owner_scope}] P=${x.priority}</option>`,
+                    )
+                    .join("");
+            sel.value = keep;
+            if (!Array.from(sel.options).some((o) => o.value === keep)) {
+                sel.value = "0";
+            }
+        }
+
+        async function loadForms() {
+            const rows = await API.request("/api/forms");
+  </section>

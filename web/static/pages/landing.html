@@ -1,0 +1,373 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title id="pageTitle">Formail - 开发者首选的表单解决方案</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/assets/css/style.css" />
+  <link rel="stylesheet" href="/assets/css/marketing.css" />
+  <style>
+    .hero-main {
+      background: linear-gradient(135deg, #1e1b4b 0%, #312e81 30%, #1e40af 70%, #3b82f6 100%);
+    }
+    .code-wrapper {
+      position: relative;
+    }
+    .hero-code {
+      background: #000000;
+      border: 1px solid rgba(255,255,255,0.1);
+      margin: 0;
+    }
+    .copy-btn {
+      position: absolute;
+      top: var(--space-sm);
+      right: var(--space-sm);
+      padding: 6px 10px;
+      font-size: var(--text-xs);
+      background: rgba(255,255,255,0.1);
+      border: 1px solid rgba(255,255,255,0.2);
+      border-radius: var(--radius-sm);
+      color: white;
+      cursor: pointer;
+      transition: all var(--transition-fast);
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      z-index: 10;
+    }
+    .copy-btn:hover {
+      background: rgba(255,255,255,0.2);
+    }
+    .copy-btn svg {
+      width: 14px;
+      height: 14px;
+    }
+    .feature-card {
+      transition: all 0.3s ease;
+      border: 1px solid transparent;
+    }
+    .feature-card:hover {
+      transform: translateY(-6px);
+      box-shadow: 0 20px 40px rgba(59, 130, 246, 0.15);
+      border-color: var(--color-primary);
+    }
+    .stat-card {
+      background: linear-gradient(135deg, rgba(59,130,246,0.05) 0%, rgba(99,102,241,0.05) 100%);
+      border: 1px solid rgba(59,130,246,0.1);
+    }
+    .btn-primary {
+      background: linear-gradient(135deg, #ffffff 0%, #f1f5f9 100%);
+      color: #1e293b;
+      border: none;
+      font-weight: 600;
+    }
+    .btn-primary:hover {
+      background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+      color: #0f172a;
+    }
+    .btn-primary:active {
+      transform: scale(0.98);
+    }
+  </style>
+</head>
+<body class="marketing">
+  <div class="marketing-shell">
+    <header class="m-nav">
+      <a href="/" class="logo" aria-label="Formail Home">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>
+        </svg>
+        Formail
+      </a>
+      <nav class="links">
+        <a href="/docs">文档</a>
+        <a href="/dashboard/forms" id="dashboardLink" style="display: none;">控制台</a>
+        <a class="btn btn-primary" href="/login">立即开始</a>
+      </nav>
+    </header>
+
+    <section class="hero">
+      <div class="hero-main m-card">
+        <h1>开发者首选的表单解决方案</h1>
+        <p>使用您自己的前端代码，提交到我们的 API。我们处理投递、反垃圾邮件、重试、权限管理和审核工作流。</p>
+        <div class="actions">
+          <a class="btn btn-primary btn-lg" href="/docs">开始使用</a>
+          <a class="btn btn-secondary btn-lg" href="/login">打开控制台</a>
+        </div>
+      </div>
+      <div class="hero-side m-card">
+        <h3>简单的 HTML 代码片段</h3>
+        <div class="code-wrapper">
+          <pre class="code-slab hero-code" id="heroCode">&lt;form action="https://your-domain/f/YOUR_FORM_TOKEN" method="POST"&gt;
+  &lt;input name="email" type="email" required /&gt;
+  &lt;textarea name="message" required&gt;&lt;/textarea&gt;
+  &lt;input name="_gotcha" style="display:none" /&gt;
+  &lt;button type="submit"&gt;提交&lt;/button&gt;
+&lt;/form&gt;</pre>
+          <button class="copy-btn" id="copyBtn" onclick="copyCode()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+            </svg>
+            复制
+          </button>
+        </div>
+        <p class="muted">Formail 表单继承您网站的 CSS 样式和工作流。</p>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="stats-bar stat-card">
+        <div class="stat-item">
+          <span class="stat-value">50K+</span>
+          <span class="stat-label">表单已创建</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-value">99.9%</span>
+          <span class="stat-label">投递成功率</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-value">10M+</span>
+          <span class="stat-label">提交记录处理</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-header">
+        <h2>灵活构建表单</h2>
+        <p>满足各种使用场景的解决方案</p>
+      </div>
+      <div class="grid-3">
+        <article class="feature-card feature m-card">
+          <div class="feature-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+              <circle cx="8.5" cy="8.5" r="1.5"/>
+              <polyline points="21 15 16 10 5 21"/>
+            </svg>
+          </div>
+          <h3>纯 HTML 表单</h3>
+          <p>只需 HTML 即可集成，无需后端代码。表单自动继承您网站的样式。</p>
+        </article>
+        <article class="feature-card feature m-card">
+          <div class="feature-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="16 18 22 12 16 6"/>
+              <polyline points="8 6 2 12 8 18"/>
+            </svg>
+          </div>
+          <h3>智能防垃圾</h3>
+          <p>验证码、蜜罐字段、指纹限流和审核流程全方位保护您的表单。</p>
+        </article>
+        <article class="feature-card feature m-card">
+          <div class="feature-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/>
+            </svg>
+          </div>
+          <h3>多渠道策略</h3>
+          <p>按表单绑定渠道，失败时自动切换备用渠道。支持多种邮件服务商。</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-header">
+        <h2>深受全球团队信赖</h2>
+        <p>开发者的首选表单工具</p>
+      </div>
+      <div class="logo-strip">
+        <span class="logo-pill">代理机构</span>
+        <span class="logo-pill">SaaS 产品</span>
+        <span class="logo-pill">电商网站</span>
+        <span class="logo-pill">初创企业</span>
+        <span class="logo-pill">作品集</span>
+        <span class="logo-pill">企业级应用</span>
+      </div>
+    </section>
+
+    <section class="section m-card steps">
+      <h2>使用流程</h2>
+      <div class="steps-list">
+        <div class="step-item">
+          <div class="step-number">1</div>
+          <h4>登录创建</h4>
+          <p>登录控制台并创建表单</p>
+        </div>
+        <div class="step-item">
+          <div class="step-number">2</div>
+          <h4>复制 URL</h4>
+          <p>复制表单的唯一提交地址</p>
+        </div>
+        <div class="step-item">
+          <div class="step-number">3</div>
+          <h4>配置渠道</h4>
+          <p>设置邮件渠道并测试投递</p>
+        </div>
+        <div class="step-item">
+          <div class="step-number">4</div>
+          <h4>收集数据</h4>
+          <p>监控提交并导出数据</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="m-card" style="padding: var(--space-2xl); text-align: center; background: linear-gradient(135deg, rgba(59,130,246,0.05) 0%, rgba(99,102,241,0.05) 100%);">
+        <h2 style="margin: 0 0 var(--space-md);">准备好开始了吗？</h2>
+        <p style="margin: 0 0 var(--space-lg); color: var(--color-gray-600);">加入数千名开发者，使用 Formail 构建强大的表单体验</p>
+        <div class="actions" style="justify-content: center;">
+          <a class="btn btn-primary btn-lg" href="/login">免费开始</a>
+          <a class="btn btn-secondary btn-lg" href="/docs">查看文档</a>
+        </div>
+      </div>
+    </section>
+
+    <footer class="m-footer">
+      <div class="m-footer-content">
+        <div class="m-footer-section">
+          <h4>产品</h4>
+          <ul>
+            <li><a href="/docs">文档</a></li>
+            <li><a href="/dashboard/forms">控制台</a></li>
+            <li><a href="#features">功能特性</a></li>
+          </ul>
+        </div>
+        <div class="m-footer-section">
+          <h4>资源</h4>
+          <ul>
+            <li><a href="/docs">API 参考</a></li>
+            <li><a href="/docs">示例代码</a></li>
+            <li><a href="/docs">使用指南</a></li>
+          </ul>
+        </div>
+        <div class="m-footer-section">
+          <h4>公司</h4>
+          <ul>
+            <li><a href="#">关于我们</a></li>
+            <li><a href="#">隐私政策</a></li>
+            <li><a href="#">服务条款</a></li>
+          </ul>
+        </div>
+        <div class="m-footer-section">
+          <h4>支持</h4>
+          <ul>
+            <li><a href="/docs">帮助中心</a></li>
+            <li><a href="#">联系我们</a></li>
+            <li><a href="#">社区论坛</a></li>
+          </ul>
+        </div>
+      </div>
+      <div class="m-footer-copyright">
+        Formail - 开发者首选的表单解决方案
+      </div>
+    </footer>
+  </div>
+  <script>
+    function copyCode() {
+      const code = document.getElementById('heroCode').textContent.trim();
+      navigator.clipboard.writeText(code).then(() => {
+        const btn = document.getElementById('copyBtn');
+        btn.innerHTML = `
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="20 6 9 17 4 12"/>
+          </svg>
+          已复制
+        `;
+        setTimeout(() => {
+          btn.innerHTML = `
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+            </svg>
+            复制
+          `;
+        }, 2000);
+      });
+    }
+
+    function checkLoginStatus() {
+      const token = localStorage.getItem('formail_token');
+      const dashboardLink = document.getElementById('dashboardLink');
+      if (token) {
+        dashboardLink.style.display = 'inline-block';
+      }
+    }
+
+    async function loadSiteSettings() {
+      try {
+        const response = await fetch('/api/site-settings');
+        if (response.ok) {
+          const data = await response.json();
+          if (data.data) {
+            const settings = data.data;
+            
+            if (settings.site_title) {
+              document.getElementById('pageTitle').textContent = settings.site_title;
+            }
+            if (settings.meta_title) {
+              const metaTitle = document.querySelector('meta[name="title"]');
+              if (metaTitle) {
+                metaTitle.content = settings.meta_title;
+              }
+            }
+            if (settings.meta_description) {
+              const metaDesc = document.querySelector('meta[name="description"]');
+              if (metaDesc) {
+                metaDesc.content = settings.meta_description;
+              }
+            }
+            if (settings.meta_keywords) {
+              const metaKeywords = document.querySelector('meta[name="keywords"]');
+              if (metaKeywords) {
+                metaKeywords.content = settings.meta_keywords;
+              }
+            }
+            if (settings.logo_url) {
+              const logoEl = document.querySelector('.logo');
+              if (logoEl) {
+                logoEl.innerHTML = `<img src="${settings.logo_url}" alt="Logo" style="height: 28px;" />`;
+              }
+            } else if (settings.site_title) {
+              const logoEl = document.querySelector('.logo');
+              if (logoEl) {
+                logoEl.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>
+                </svg>
+                ${settings.site_title}`;
+              }
+            }
+            if (settings.favicon_url) {
+              const favicon = document.querySelector('link[rel="icon"]');
+              if (favicon) {
+                favicon.href = settings.favicon_url;
+              }
+            }
+            if (settings.copyright) {
+              const copyright = document.querySelector('.m-footer-copyright');
+              if (copyright) {
+                copyright.innerHTML = settings.copyright;
+              }
+            }
+            if (settings.footer_content) {
+              const footerSection = document.querySelector('.m-footer');
+              if (footerSection) {
+                footerSection.innerHTML += `<div style="padding-top: var(--space-lg); border-top: 1px solid var(--color-gray-200);">${settings.footer_content}</div>`;
+              }
+            }
+          }
+        }
+      } catch (e) {
+        console.log('加载站点设置失败:', e);
+      }
+    }
+
+    checkLoginStatus();
+    loadSiteSettings();
+  </script>
+</body>
+</html>
