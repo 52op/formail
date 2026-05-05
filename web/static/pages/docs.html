@@ -48,6 +48,10 @@
                 <a href="#security">安全防护</a>
                 <a href="#success-page">成功页面</a>
                 <a href="#channels">渠道策略</a>
+                <a href="#webhook">Webhook 通知</a>
+                <a href="#fields">字段自定义</a>
+                <a href="#auto-tls">自动 HTTPS</a>
+                <a href="#reverse-proxy">反向代理</a>
                 <a href="#api">常见 API</a>
             </aside>
 
@@ -119,7 +123,9 @@
                     <p>表单中添加隐藏字段，机器人会填写但人类不会，用于识别自动化提交。</p>
                     <pre class="code-slab">&lt;input type="text" name="_gotcha" style="display:none" /&gt;</pre>
                     <h3 style="font-size: var(--text-base); margin-top: var(--space-md);">请求频率限制</h3>
-                    <p>系统自动限制同一IP的提交频率，默认每5秒最多提交一次。</p>
+                    <p>系统自动限制同一IP的提交频率，支持设备指纹级限流。</p>
+                    <h3 style="font-size: var(--text-base); margin-top: var(--space-md);">图形验证码</h3>
+                    <p>登录、注册等操作支持图形验证码，防止暴力破解和机器人注册。可在后台开关控制。</p>
                 </section>
 
                 <section id="success-page" class="block m-card">
@@ -149,7 +155,82 @@
                         <li>绑定渠道失败自动回退到用户可用渠道。</li>
                         <li>管理员可共享部分渠道给普通用户，并设置共享限制。</li>
                         <li>渠道优先级数字越小越优先。</li>
+                        <li>可在「邮件队列」页面查看发送失败原因并手动重试。</li>
                     </ul>
+                    <h3 style="font-size: var(--text-base); margin-top: var(--space-md);">自动回复</h3>
+                    <p>开启后，表单提交成功会自动向提交者的邮箱发送确认邮件，可自定义标题和正文模板。</p>
+                </section>
+
+                <section id="webhook" class="block m-card">
+                    <h2>Webhook 通知</h2>
+                    <p>表单提交后可向外部 URL 推送通知，便于对接飞书、企业微信、Slack 等第三方系统。</p>
+                    <h3 style="font-size: var(--text-base); margin-top: var(--space-md);">配置方式</h3>
+                    <p>在表单编辑器中填写 <strong>Webhook URL</strong> 和可选的 <strong>Webhook 密钥</strong>。</p>
+                    <h3 style="font-size: var(--text-base); margin-top: var(--space-md);">推送格式</h3>
+                    <pre class="code-slab">POST /your-webhook-url
+Content-Type: application/json
+X-Webhook-Signature: sha256=xxxx  // HMAC-SHA256 签名（如设置了密钥）
+
+{
+  "form_id": 1,
+  "form_name": "联系表单",
+  "submitted_at": "2026-05-05T12:00:00Z",
+  "data": { "name": "张三", "email": "zhang@example.com" },
+  "ip": "1.2.3.4"
+}</pre>
+                    <h3 style="font-size: var(--text-base); margin-top: var(--space-md);">签名验证</h3>
+                    <p>如果设置了 Webhook 密钥，请求头会包含 <code>X-Webhook-Signature</code>，值为 <code>sha256=</code> + 请求体的 HMAC-SHA256 十六进制摘要。接收方应验证签名以确保来源可信。</p>
+                </section>
+
+                <section id="fields" class="block m-card">
+                    <h2>字段自定义</h2>
+                    <p>通过字段 Schema 定义表单字段的名称、标签、类型和是否必填，提交时系统自动校验。</p>
+                    <h3 style="font-size: var(--text-base); margin-top: var(--space-md);">配置方式</h3>
+                    <p>在表单编辑器中点击「添加字段」，设置字段名、标签、类型（文本/邮箱/电话/数字/多行文本/URL）和是否必填。</p>
+                    <h3 style="font-size: var(--text-base); margin-top: var(--space-md);">校验规则</h3>
+                    <ul>
+                        <li><strong>必填字段</strong>：提交数据中必须存在且非空</li>
+                        <li><strong>邮箱类型</strong>：自动校验邮箱格式</li>
+                        <li><strong>留空不校验</strong>：不定义字段 Schema 时，接受任意格式提交（向后兼容）</li>
+                    </ul>
+                </section>
+
+                <section id="auto-tls" class="block m-card">
+                    <h2>自动 HTTPS</h2>
+                    <p>Formail 集成 CertMagic，可自动向 Let's Encrypt 申请和续期 SSL 证书，无需手动配置。</p>
+                    <h3 style="font-size: var(--text-base); margin-top: var(--space-md);">启用方式</h3>
+                    <p>在 <code>config.toml</code> 中配置：</p>
+                    <pre class="code-slab">[server]
+auto_tls = true
+acme_email = "admin@your-domain.com"  # 证书到期通知邮箱</pre>
+                    <h3 style="font-size: var(--text-base); margin-top: var(--space-md);">工作原理</h3>
+                    <ul>
+                        <li>自动监听 443（HTTPS）和 80（HTTP 跳转）端口</li>
+                        <li>首次访问某域名时自动签发证书（约 10 秒）</li>
+                        <li>证书本地持久化缓存，重启不丢失</li>
+                        <li>到期前 30 天自动续期，无需人工干预</li>
+                        <li>支持多域名自适应，访问什么域名就签发什么证书</li>
+                    </ul>
+                </section>
+
+                <section id="reverse-proxy" class="block m-card">
+                    <h2>反向代理访问控制</h2>
+                    <p>可配置为只允许通过 Nginx 等反向代理访问，禁止直接通过端口访问，增强安全性。</p>
+                    <h3 style="font-size: var(--text-base); margin-top: var(--space-md);">配置方式</h3>
+                    <p>在 <code>config.toml</code> 中配置：</p>
+                    <pre class="code-slab">[direct_access]
+allow = false                    # 禁止直连
+key_name = "x-access-key-name"  # 请求头名称
+key = "your_secret_key"         # 请求头值</pre>
+                    <h3 style="font-size: var(--text-base); margin-top: var(--space-md);">Nginx 配置示例</h3>
+                    <pre class="code-slab">location / {
+    proxy_pass http://127.0.0.1:8080;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_set_header x-access-key-name your_secret_key;
+}</pre>
+                    <p>未携带正确请求头的直连请求将返回 403。</p>
                 </section>
 
                 <section id="api" class="block m-card">
@@ -168,15 +249,24 @@
                     <ul>
                         <li><code>GET /api/auth/me</code> - 获取当前用户信息</li>
                         <li><code>POST /api/auth/change-password</code> - 修改密码</li>
-                        <li><code>GET /api/forms</code> - 当前用户表单列表</li>
+                        <li><code>GET /api/forms</code> - 表单列表（管理员可传 <code>user_id</code> 筛选）</li>
                         <li><code>POST /api/forms</code> - 创建表单</li>
                         <li><code>PUT /api/forms/:id</code> - 更新表单</li>
                         <li><code>DELETE /api/forms/:id</code> - 删除表单</li>
-                        <li><code>GET /api/channels</code> - 当前用户渠道列表</li>
+                        <li><code>POST /api/forms/:id/resend-verify</code> - 重发验证邮件</li>
+                        <li><code>GET /api/channels</code> - 渠道列表</li>
+                        <li><code>GET /api/channels/bindable</code> - 可绑定渠道</li>
                         <li><code>POST /api/channels</code> - 创建渠道</li>
-                        <li><code>GET /api/submissions</code> - 提交记录列表</li>
+                        <li><code>POST /api/channels/:id/test</code> - 测试渠道连通性</li>
+                        <li><code>GET /api/submissions?page=1&amp;limit=20</code> - 分页查询提交记录</li>
                         <li><code>DELETE /api/submissions/:id</code> - 删除提交记录</li>
-                        <li><code>GET /api/submissions/export</code> - 导出提交记录</li>
+                        <li><code>POST /api/submissions/batch-delete</code> - 批量删除（<code>{"ids":[1,2,3]}</code>）</li>
+                        <li><code>GET /api/submissions/export</code> - CSV 导出</li>
+                        <li><code>GET /api/stats/overview</code> - 数据统计总览</li>
+                        <li><code>GET /api/stats/daily?days=30</code> - 每日趋势</li>
+                        <li><code>GET /api/stats/forms</code> - 表单排行</li>
+                        <li><code>GET /api/stats/channels</code> - 渠道统计</li>
+                        <li><code>GET /api/mail-queue</code> - 邮件队列列表（管理员）</li>
                     </ul>
                 </section>
             </main>
