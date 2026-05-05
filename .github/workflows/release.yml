@@ -11,6 +11,7 @@ permissions:
 jobs:
   build:
     strategy:
+      fail-fast: false
       matrix:
         include:
           - goos: linux
@@ -29,6 +30,7 @@ jobs:
             goarch: amd64
             suffix: '.exe'
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
         with:
@@ -38,11 +40,17 @@ jobs:
         with:
           go-version-file: go.mod
 
+      - name: Download dependencies
+        env:
+          GOTOOLCHAIN: local
+        run: go mod download
+
       - name: Build
         env:
           GOOS: ${{ matrix.goos }}
           GOARCH: ${{ matrix.goarch }}
           CGO_ENABLED: '0'
+          GOTOOLCHAIN: local
         run: |
           BINARY_NAME=formail${{ matrix.suffix }}
           go build -ldflags="-s -w" -o "${BINARY_NAME}" ./cmd/formail
@@ -76,7 +84,6 @@ jobs:
       - name: Generate changelog
         id: changelog
         run: |
-          # 获取上一个 tag
           PREV_TAG=$(git tag --sort=-v:refname | grep '^v' | sed -n '2p')
           if [ -z "$PREV_TAG" ]; then
             echo "body=Initial release" >> "$GITHUB_OUTPUT"
