@@ -40,6 +40,15 @@ jobs:
         with:
           go-version: '1.25.0'
 
+      - name: Debug - list files
+        run: |
+          echo "PWD=$(pwd)"
+          ls -la
+          echo "---"
+          ls -la cmd/ || echo "cmd/ not found"
+          echo "---"
+          ls -la cmd/formail/ || echo "cmd/formail/ not found"
+
       - name: Download dependencies
         env:
           GOTOOLCHAIN: local
