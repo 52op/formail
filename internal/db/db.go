@@ -242,6 +242,9 @@ func migrate(db *sql.DB) error {
 	}
 	adminID, err := primaryAdminID(db)
 	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil // fresh database, EnsureDefaultAdmin will handle seeding
+		}
 		return err
 	}
 	if _, err := db.Exec(`UPDATE channels SET owner_user_id=? WHERE owner_user_id IS NULL OR owner_user_id<=0`, adminID); err != nil {
