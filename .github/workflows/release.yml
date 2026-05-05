@@ -40,41 +40,52 @@ jobs:
         with:
           go-version: '1.25.0'
 
-      - name: Debug - list files
-        run: |
-          echo "PWD=$(pwd)"
-          ls -la
-          echo "---"
-          ls -la cmd/ || echo "cmd/ not found"
-          echo "---"
-          ls -la cmd/formail/ || echo "cmd/formail/ not found"
-
       - name: Download dependencies
         env:
           GOTOOLCHAIN: local
         run: go mod download
 
-      - name: Build
+      - name: Build standard
         env:
           GOOS: ${{ matrix.goos }}
           GOARCH: ${{ matrix.goarch }}
           CGO_ENABLED: '0'
           GOTOOLCHAIN: local
         run: |
-          BINARY_NAME=formail${{ matrix.suffix }}
-          go build -ldflags="-s -w" -o "${BINARY_NAME}" ./cmd/formail
+          BINARY=formail${{ matrix.suffix }}
+          go build -ldflags="-s -w" -o "${BINARY}" ./cmd/formail
 
+          PLATFORM=formail-${{ matrix.goos }}-${{ matrix.goarch }}
           if [ "${{ matrix.goos }}" = "windows" ]; then
-            zip "formail-${{ matrix.goos }}-${{ matrix.goarch }}.zip" "${BINARY_NAME}"
+            zip -r "${PLATFORM}.zip" "${BINARY}" web/static/
           else
-            tar czf "formail-${{ matrix.goos }}-${{ matrix.goarch }}.tar.gz" "${BINARY_NAME}"
+            tar czf "${PLATFORM}.tar.gz" "${BINARY}" web/static/
+          fi
+
+      - name: Build embed (single binary)
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          CGO_ENABLED: '0'
+          GOTOOLCHAIN: local
+        run: |
+          BINARY=formail-embed${{ matrix.suffix }}
+          go build -tags embed -ldflags="-s -w" -o "${BINARY}" ./cmd/formail
+
+          PLATFORM=formail-embed-${{ matrix.goos }}-${{ matrix.goarch }}
+          if [ "${{ matrix.goos }}" = "windows" ]; then
+            zip "${PLATFORM}.zip" "${BINARY}"
+          else
+            tar czf "${PLATFORM}.tar.gz" "${BINARY}"
           fi
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: formail-${{ matrix.goos }}-${{ matrix.goarch }}
-          path: formail-${{ matrix.goos }}-${{ matrix.goarch }}.*
+          path: |
+            formail-${{ matrix.goos }}-${{ matrix.goarch }}.*
+            formail-embed-${{ matrix.goos }}-${{ matrix.goarch }}.*
 
   release:
     needs: build
@@ -103,6 +114,12 @@ jobs:
               echo "## Changes since ${PREV_TAG}"
               echo ""
               echo "$LOG"
+              echo ""
+              echo "---"
+              echo "## 下载说明"
+              echo ""
+              echo "- **formail-{os}-{arch}**: 标准版，需配合 web/static 目录使用，可自定义前端"
+              echo "- **formail-embed-{os}-{arch}**: 嵌入版，单文件运行，前端已内置，无需额外文件"
               echo "EOF"
             } >> "$GITHUB_OUTPUT"
           fi
