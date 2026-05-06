@@ -204,6 +204,21 @@ server {
 
 该项目前端静态页由后端统一托管（`/assets` + `/dashboard/*`），不依赖 Node 或额外前端服务。
 
+### 5.6 CLI 命令行工具
+
+Formail 支持通过命令行参数执行管理操作。CLI 模式仅连接数据库执行更新，执行完毕立即退出，不会启动 Web 服务。可在服务运行时从另一个终端安全执行。
+
+```bash
+# 修改管理员用户名
+./formail -admin newadmin@example.com
+
+# 修改管理员密码
+./formail -adminpwd newpassword123
+
+# 同时修改
+./formail -admin newadmin@example.com -adminpwd newpassword123
+```
+
 ---
 
 ## 6. 默认管理员账号
@@ -336,6 +351,7 @@ await fetch('https://your-domain.com/f/FORM_TOKEN', {
 - 默认关闭（`allow_register=0`）
 - 开启后，访客可通过登录页下方注册入口调用 `POST /api/auth/register`
 - 注册用户默认角色为 `user`，默认状态可配置
+- 当默认状态设为"待审核"时，注册表单会出现必填的"注册申请"字段，用户需说明注册原因。该内容会随审核邮件发送给管理员，兼防机器人注册
 
 ---
 
@@ -354,6 +370,6 @@ await fetch('https://your-domain.com/f/FORM_TOKEN', {
 1) 登录失败：确认 `users` 表是否已初始化，以及密码是否被修改。
 2) 提交后不发信：检查渠道是否启用、优先级、授权码是否正确、SMTP 是否可连通。可在「邮件队列」页面查看失败原因。
 3) 导出无内容：确认筛选条件是否正确，或是否存在提交记录。
-4) 改了默认管理员但未生效：已有用户时不会再次自动覆盖初始化。
+4) 忘记管理员密码：使用 CLI 工具重置：`./formail -adminpwd newpassword`
 5) AutoTLS 证书签发失败：确认 80/443 端口是否开放，域名 DNS 是否指向服务器 IP。
 6) 直连被拒绝：检查 `direct_access` 配置，确认是否需要通过 Nginx 反向代理访问。

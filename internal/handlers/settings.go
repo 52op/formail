@@ -17,6 +17,7 @@ type registerReq struct {
 	Password    string `json:"password"`
 	Code        string `json:"code"`
 	DisplayName string `json:"display_name"`
+	Reason      string `json:"reason"`
 }
 
 type registrationSettingsReq struct {
@@ -82,6 +83,10 @@ func (h *Handler) Register(c *gin.Context) {
 	status := 1
 	if getSettingInt(h.DB, "register_default_status", 1) == 0 {
 		status = 0
+		if strings.TrimSpace(req.Reason) == "" {
+			utils.Fail(c, 400, "请填写注册申请")
+			return
+		}
 	}
 	log.Printf("register insert user email=%s status=%d", email, status)
 	res, err := h.DB.Exec(`INSERT INTO users(username,password_hash,role,display_name,email,status) VALUES(?,?, 'user',?,?,?)`,
@@ -98,13 +103,13 @@ func (h *Handler) Register(c *gin.Context) {
 			scheme = "https"
 		}
 		baseURL := scheme + "://" + c.Request.Host
-		h.notifyAdminForReview(uid, email, baseURL)
+		h.notifyAdminForReview(uid, email, baseURL, req.Reason)
 	}
 	log.Printf("register success email=%s status=%d", email, status)
 	utils.OK(c, gin.H{"registered": true, "status": status})
 }
 
-func (h *Handler) notifyAdminForReview(userID int64, newUserEmail, baseURL string) {
+func (h *Handler) notifyAdminForReview(userID int64, newUserEmail, baseURL, reason string) {
 	adminEmail := h.resolveAdminNotifyEmail()
 	if !isValidEmail(adminEmail) {
 		return
@@ -119,7 +124,11 @@ func (h *Handler) notifyAdminForReview(userID int64, newUserEmail, baseURL strin
 	approveLink := fmt.Sprintf("%s/api/auth/approve?token=%s", strings.TrimRight(baseURL, "/"), token)
 	rejectLink := fmt.Sprintf("%s/api/auth/reject?token=%s", strings.TrimRight(baseURL, "/"), token)
 	sub := "Formail 新用户待审核"
-	body := "新用户注册待审核: " + newUserEmail + "\n审核通过: " + approveLink + "\n审核拒绝: " + rejectLink
+	body := "新用户注册待审核: " + newUserEmail
+	if strings.TrimSpace(reason) != "" {
+		body += "\n\n注册申请:\n" + reason
+	}
+	body += "\n\n审核通过: " + approveLink + "\n审核拒绝: " + rejectLink
 	_ = h.enqueueServiceMail(adminEmail, sub, body, "register_review")
 }
 

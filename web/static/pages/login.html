@@ -587,6 +587,10 @@
                         <label>昵称</label>
                         <input id="reg_display_name" placeholder="可选" />
                     </div>
+                    <div class="form-group" id="regReasonGroup" style="margin-top: var(--space-md); display: none;">
+                        <label>注册申请 <span style="color: var(--color-danger);">*</span></label>
+                        <textarea id="reg_reason" rows="3" placeholder="请简要说明：为什么注册 Formail、从哪里了解到 Formail 等"></textarea>
+                    </div>
                     <div
                         class="inline-input-actions"
                         style="margin-top: var(--space-md)"
@@ -750,6 +754,12 @@
                                 if (favicon) {
                                     favicon.href = settings.favicon_url;
                                 }
+                            }
+
+                            const reasonGroup = document.getElementById("regReasonGroup");
+                            if (reasonGroup) {
+                                reasonGroup.style.display =
+                                    settings.register_default_status === 0 ? "" : "none";
                             }
                         }
                     }

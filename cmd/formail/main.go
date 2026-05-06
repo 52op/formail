@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"log"
 	"net/http"
@@ -17,15 +18,13 @@ import (
 )
 
 func main() {
+	adminUser := flag.String("admin", "", "修改管理员用户名")
+	adminPwd := flag.String("adminpwd", "", "修改管理员密码")
+	flag.Parse()
+
 	cfg, err := config.Load("config.toml")
 	if err != nil {
 		log.Fatalf("load config failed: %v", err)
-	}
-
-	logFile, err := os.OpenFile(cfg.Log.File, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0644)
-	if err == nil {
-		gin.DefaultWriter = logFile
-		gin.DefaultErrorWriter = logFile
 	}
 
 	database, err := db.Open(cfg.Database.Path)
@@ -33,6 +32,21 @@ func main() {
 		log.Fatalf("open database failed: %v", err)
 	}
 	defer database.Close()
+
+	// CLI 模式：仅修改管理员账号/密码，完成后退出
+	if *adminUser != "" || *adminPwd != "" {
+		if err := db.UpdateAdminAccount(database, *adminUser, *adminPwd); err != nil {
+			log.Fatalf("修改管理员失败: %v", err)
+		}
+		fmt.Println("管理员账号已更新")
+		return
+	}
+
+	logFile, err := os.OpenFile(cfg.Log.File, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0644)
+	if err == nil {
+		gin.DefaultWriter = logFile
+		gin.DefaultErrorWriter = logFile
+	}
 
 	if err := db.EnsureDefaultAdmin(database, cfg.Admin.DefaultUsername, cfg.Admin.DefaultPassword); err != nil {
 		log.Fatalf("seed admin failed: %v", err)

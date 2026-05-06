@@ -843,6 +843,9 @@ function initLoginPage() {
       const displayName = document
         .getElementById("reg_display_name")
         .value.trim();
+      const reason = document
+        .getElementById("reg_reason")
+        .value.trim();
       if (!email) {
         markInputError("reg_email");
         throw new Error("请输入邮箱");
@@ -864,6 +867,7 @@ function initLoginPage() {
             code,
             password,
             display_name: displayName,
+            reason: reason,
           }),
         },
         false,

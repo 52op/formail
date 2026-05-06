@@ -15,14 +15,15 @@ import (
 )
 
 type SiteSettings struct {
-	SiteTitle        string `json:"site_title"`
-	LogoURL          string `json:"logo_url"`
-	FaviconURL       string `json:"favicon_url"`
-	MetaTitle        string `json:"meta_title"`
-	MetaDescription  string `json:"meta_description"`
-	MetaKeywords     string `json:"meta_keywords"`
-	Copyright        string `json:"copyright"`
-	FooterContent    string `json:"footer_content"`
+	SiteTitle              string `json:"site_title"`
+	LogoURL                string `json:"logo_url"`
+	FaviconURL             string `json:"favicon_url"`
+	MetaTitle              string `json:"meta_title"`
+	MetaDescription        string `json:"meta_description"`
+	MetaKeywords           string `json:"meta_keywords"`
+	Copyright              string `json:"copyright"`
+	FooterContent          string `json:"footer_content"`
+	RegisterDefaultStatus  int    `json:"register_default_status"`
 }
 
 func getSiteSettings(db *sql.DB) (SiteSettings, error) {
@@ -35,6 +36,7 @@ func getSiteSettings(db *sql.DB) (SiteSettings, error) {
 	settings.MetaKeywords = getSetting(db, "meta_keywords", "")
 	settings.Copyright = getSetting(db, "copyright", "")
 	settings.FooterContent = getSetting(db, "footer_content", "")
+	settings.RegisterDefaultStatus = getSettingInt(db, "register_default_status", 1)
 	return settings, nil
 }
 

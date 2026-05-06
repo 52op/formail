@@ -59,6 +59,7 @@
                     <a href="#fields">字段自定义</a>
                     <a href="#auto-tls">自动 HTTPS</a>
                     <a href="#reverse-proxy">反向代理</a>
+                    <a href="#cli">CLI 工具</a>
                     <a href="#api">常见 API</a>
                 </nav>
             </aside>
@@ -134,6 +135,8 @@
                     <p>系统自动限制同一IP的提交频率，支持设备指纹级限流。</p>
                     <h3 style="font-size: var(--text-base); margin-top: var(--space-md);">图形验证码</h3>
                     <p>登录、注册等操作支持图形验证码，防止暴力破解和机器人注册。可在后台开关控制。</p>
+                    <h3 style="font-size: var(--text-base); margin-top: var(--space-md);">注册审核</h3>
+                    <p>当管理员将注册默认状态设置为"待审核"时，新用户注册需要填写"注册申请"，说明注册原因。注册申请会随审核邮件发送给管理员，作为审批依据，同时起到防机器人注册的作用。管理员可通过邮件中的链接一键通过或拒绝，也可在后台用户管理中操作。</p>
                 </section>
 
                 <section id="success-page" class="block m-card">
@@ -239,6 +242,21 @@ key = "your_secret_key"         # 请求头值</pre>
     proxy_set_header x-access-key-name your_secret_key;
 }</pre>
                     <p>未携带正确请求头的直连请求将返回 403。</p>
+                </section>
+
+                <section id="cli" class="block m-card">
+                    <h2>CLI 工具</h2>
+                    <p>Formail 支持通过命令行参数执行管理操作，执行完毕后自动退出，不会启动 Web 服务。可在服务运行时从另一个终端安全执行。</p>
+                    <h3 style="font-size: var(--text-base); margin-top: var(--space-md);">修改管理员账号</h3>
+                    <pre class="code-slab"># 修改管理员用户名
+./formail -admin newadmin@example.com
+
+# 修改管理员密码
+./formail -adminpwd newpassword123
+
+# 同时修改用户名和密码
+./formail -admin newadmin@example.com -adminpwd newpassword123</pre>
+                    <p class="muted">CLI 模式仅连接数据库执行更新，执行完毕立即退出，不影响正在运行的服务。</p>
                 </section>
 
                 <section id="api" class="block m-card">
