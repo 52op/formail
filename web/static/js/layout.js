@@ -152,21 +152,26 @@ async function loadSiteSettingsForLayout() {
 
 async function renderLayout(active, title, contentHTML) {
   const settings = await loadSiteSettingsForLayout();
-  
+
   let logoHTML = `
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 28px; height: 28px; color: var(--color-primary-light);">
       <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>
     </svg>
     <h2>${settings?.site_title || 'Formail'}</h2>
   `;
-  
+
   if (settings?.logo_url) {
     logoHTML = `<img src="${settings.logo_url}" alt="Logo" style="height: 28px;" />`;
   }
-  
+
   document.body.innerHTML = `
     <div class="app-shell">
-      <aside class="sidebar">
+      <div class="mobile-topbar">
+        <button class="hamburger-btn" onclick="toggleSidebar()">${iconHamburger()}</button>
+        <h2>${settings?.site_title || 'Formail'}</h2>
+      </div>
+      <div class="sidebar-overlay" id="sidebarOverlay" onclick="closeSidebar()"></div>
+      <aside class="sidebar" id="sidebar">
         <div style="display: flex; align-items: center; gap: var(--space-sm); margin-bottom: var(--space-lg);">
           ${logoHTML}
         </div>
@@ -188,6 +193,14 @@ async function renderLayout(active, title, contentHTML) {
   `;
 }
 
+function iconHamburger() {
+  return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <line x1="3" y1="12" x2="21" y2="12"/>
+    <line x1="3" y1="6" x2="21" y2="6"/>
+    <line x1="3" y1="18" x2="21" y2="18"/>
+  </svg>`;
+}
+
 function navItemsHTML(active) {
   const items = [
     ["/dashboard/forms", "表单管理", "forms", iconForms()],
@@ -196,19 +209,29 @@ function navItemsHTML(active) {
     ["/dashboard/stats", "数据统计", "stats", iconStats()],
     ["/docs", "文档中心", "docs", iconDocs()],
   ];
-  
+
   if (isAdmin()) {
     items.splice(3, 0, ["/dashboard/users", "用户管理", "users", iconUsers()]);
     items.splice(5, 0, ["/dashboard/settings", "站点设置", "settings", iconSettings()]);
     items.splice(6, 0, ["/dashboard/queue", "邮件队列", "queue", iconQueue()]);
   }
-  
+
   items.push(["/dashboard/profile", "账号设置", "profile", iconProfile()]);
-  
+
   return items.map((it) => `
     <a class="nav ${active === it[2] ? "active" : ""}" href="${it[0]}">
       ${it[3]}
       ${it[1]}
     </a>
   `).join("");
+}
+
+function toggleSidebar() {
+  document.getElementById('sidebar').classList.toggle('open');
+  document.getElementById('sidebarOverlay').classList.toggle('open');
+}
+
+function closeSidebar() {
+  document.getElementById('sidebar').classList.remove('open');
+  document.getElementById('sidebarOverlay').classList.remove('open');
 }

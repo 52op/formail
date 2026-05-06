@@ -206,6 +206,7 @@ input, textarea, select {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
   gap: var(--space-md);
+  overflow: hidden;
 }
 
 .grid-2 {
@@ -522,6 +523,8 @@ tbody tr:last-child td {
   font-family: var(--font-mono);
   font-size: var(--text-xs);
   line-height: 1.6;
+  max-width: 100%;
+  -webkit-overflow-scrolling: touch;
 }
 
 .badge {
@@ -559,6 +562,18 @@ tbody tr:last-child td {
   margin: var(--space-lg) 0;
 }
 
+.mobile-topbar {
+  display: none;
+}
+
+.hamburger-btn {
+  display: none;
+}
+
+.sidebar-overlay {
+  display: none;
+}
+
 @media (max-width: 1024px) {
   .sidebar {
     width: 220px;
@@ -578,45 +593,99 @@ tbody tr:last-child td {
   .app-shell {
     flex-direction: column;
   }
-  
+
   .sidebar {
-    position: relative;
-    width: 100%;
-    height: auto;
-    padding: var(--space-md);
-    flex-direction: row;
-    flex-wrap: wrap;
-    justify-content: space-between;
+    position: fixed;
+    width: 280px;
+    height: 100vh;
+    padding: var(--space-lg);
+    flex-direction: column;
+    z-index: 100;
+    transform: translateX(-100%);
+    transition: transform var(--transition-normal);
+  }
+
+  .sidebar.open {
+    transform: translateX(0);
+  }
+
+  .sidebar-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.4);
+    z-index: 99;
+  }
+
+  .sidebar-overlay.open {
+    display: block;
+  }
+
+  .mobile-topbar {
+    display: flex;
     align-items: center;
     gap: var(--space-sm);
+    padding: var(--space-md);
+    background: var(--color-gray-900);
+    position: sticky;
+    top: 0;
+    z-index: 98;
   }
-  
-  .sidebar h2 {
+
+  .mobile-topbar h2 {
     margin: 0;
+    font-size: var(--text-lg);
+    font-weight: 700;
+    color: var(--color-white);
   }
-  
+
+  .hamburger-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    border: none;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: var(--radius-md);
+    color: var(--color-white);
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+
+  .hamburger-btn svg {
+    width: 22px;
+    height: 22px;
+  }
+
   .main {
     margin-left: 0;
     padding: var(--space-md);
   }
-  
+
   .topbar {
     flex-direction: column;
     align-items: flex-start;
     gap: var(--space-sm);
   }
-  
+
   .grid {
     grid-template-columns: 1fr;
   }
-  
+
   .login-card {
     padding: var(--space-lg);
   }
-  
+
   .toast {
     right: var(--space-md);
     left: var(--space-md);
     min-width: auto;
+  }
+
+  table {
+    display: block;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
   }
 }

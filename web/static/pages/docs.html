@@ -31,28 +31,36 @@
                 </svg>
                 <span id="docsSiteName">Formail</span>
             </a>
-            <nav class="links">
+            <nav class="links" id="navLinks">
                 <a href="/">首页</a>
                 <a href="/dashboard/forms" id="dashboardLink" style="display: none;">控制台</a>
                 <a class="btn btn-primary" href="/login">登录</a>
             </nav>
+            <button class="nav-toggle-btn" id="navToggle" onclick="document.getElementById('navLinks').classList.toggle('open')" aria-label="菜单">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+            </button>
         </header>
 
         <div class="docs-layout">
             <aside class="docs-toc m-card">
-                <strong>文档目录</strong>
-                <a href="#quickstart" class="active">快速开始</a>
-                <a href="#html">HTML 接入</a>
-                <a href="#json">JSON 提交</a>
-                <a href="#email-verification">邮箱验证</a>
-                <a href="#security">安全防护</a>
-                <a href="#success-page">成功页面</a>
-                <a href="#channels">渠道策略</a>
-                <a href="#webhook">Webhook 通知</a>
-                <a href="#fields">字段自定义</a>
-                <a href="#auto-tls">自动 HTTPS</a>
-                <a href="#reverse-proxy">反向代理</a>
-                <a href="#api">常见 API</a>
+                <button class="docs-toc-toggle" type="button">
+                    <span>文档目录</span>
+                    <svg class="docs-toc-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px"><polyline points="6 9 12 15 18 9"/></svg>
+                </button>
+                <nav class="docs-toc-links">
+                    <a href="#quickstart" class="active">快速开始</a>
+                    <a href="#html">HTML 接入</a>
+                    <a href="#json">JSON 提交</a>
+                    <a href="#email-verification">邮箱验证</a>
+                    <a href="#security">安全防护</a>
+                    <a href="#success-page">成功页面</a>
+                    <a href="#channels">渠道策略</a>
+                    <a href="#webhook">Webhook 通知</a>
+                    <a href="#fields">字段自定义</a>
+                    <a href="#auto-tls">自动 HTTPS</a>
+                    <a href="#reverse-proxy">反向代理</a>
+                    <a href="#api">常见 API</a>
+                </nav>
             </aside>
 
             <main class="docs-main">
@@ -313,16 +321,23 @@ key = "your_secret_key"         # 请求头值</pre>
         </footer>
     </div>
     <script>
-        document.querySelectorAll('.docs-toc a').forEach(link => {
+        document.querySelectorAll('.docs-toc-links a').forEach(link => {
             link.addEventListener('click', (e) => {
                 e.preventDefault();
-                document.querySelectorAll('.docs-toc a').forEach(a => a.classList.remove('active'));
+                document.querySelectorAll('.docs-toc-links a').forEach(a => a.classList.remove('active'));
                 link.classList.add('active');
                 const target = document.querySelector(link.getAttribute('href'));
                 if (target) {
                     target.scrollIntoView({ behavior: 'smooth', block: 'start' });
                 }
+                if (window.innerWidth <= 768) {
+                    document.querySelector('.docs-toc').classList.add('collapsed');
+                }
             });
+        });
+
+        document.querySelector('.docs-toc-toggle').addEventListener('click', () => {
+            document.querySelector('.docs-toc').classList.toggle('collapsed');
         });
 
         function checkLoginStatus() {

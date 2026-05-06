@@ -82,11 +82,14 @@
         </svg>
         Formail
       </a>
-      <nav class="links">
+      <nav class="links" id="navLinks">
         <a href="/docs">文档</a>
         <a href="/dashboard/forms" id="dashboardLink" style="display: none;">控制台</a>
         <a class="btn btn-primary" href="/login">立即开始</a>
       </nav>
+      <button class="nav-toggle-btn" id="navToggle" onclick="document.getElementById('navLinks').classList.toggle('open')" aria-label="菜单">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+      </button>
     </header>
 
     <section class="hero">
