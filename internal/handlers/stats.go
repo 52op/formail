@@ -12,11 +12,14 @@ func (h *Handler) StatsOverview(c *gin.Context) {
 	uid := h.currentUserID(c)
 
 	var totalForms, totalSubmissions, todaySubmissions, sentCount int
+	var apiTotalSent, apiTodaySent int
 
 	h.DB.QueryRow(`SELECT COUNT(1) FROM forms WHERE owner_user_id=?`, uid).Scan(&totalForms)
 	h.DB.QueryRow(`SELECT COUNT(1) FROM submissions s JOIN forms f ON f.id=s.form_id WHERE f.owner_user_id=?`, uid).Scan(&totalSubmissions)
 	h.DB.QueryRow(`SELECT COUNT(1) FROM submissions s JOIN forms f ON f.id=s.form_id WHERE f.owner_user_id=? AND DATE(s.created_at)=DATE('now')`, uid).Scan(&todaySubmissions)
 	h.DB.QueryRow(`SELECT COUNT(1) FROM submissions s JOIN forms f ON f.id=s.form_id WHERE f.owner_user_id=? AND s.email_sent=1`, uid).Scan(&sentCount)
+	h.DB.QueryRow(`SELECT COUNT(1) FROM api_logs WHERE user_id=? AND status='success'`, uid).Scan(&apiTotalSent)
+	h.DB.QueryRow(`SELECT COUNT(1) FROM api_logs WHERE user_id=? AND status='success' AND DATE(created_at)=DATE('now')`, uid).Scan(&apiTodaySent)
 
 	sendRate := 0.0
 	if totalSubmissions > 0 {
@@ -29,6 +32,8 @@ func (h *Handler) StatsOverview(c *gin.Context) {
 		"today_submissions":  todaySubmissions,
 		"send_rate":          sendRate,
 		"sent_count":         sentCount,
+		"api_total_sent":     apiTotalSent,
+		"api_today_sent":     apiTodaySent,
 	})
 }
 

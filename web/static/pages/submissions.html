@@ -8,6 +8,33 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/assets/css/style.css" />
+    <style>
+        .page-tab-bar {
+            display: flex;
+            gap: 0;
+            margin-bottom: var(--space-md);
+            border-bottom: 2px solid var(--color-gray-200);
+        }
+        .page-tab-btn {
+            padding: 10px 20px;
+            font-size: var(--text-sm);
+            font-weight: 500;
+            border: none;
+            background: none;
+            cursor: pointer;
+            color: var(--color-gray-500);
+            border-bottom: 2px solid transparent;
+            margin-bottom: -2px;
+        }
+        .page-tab-btn.active {
+            color: var(--color-primary);
+            border-bottom-color: var(--color-primary);
+        }
+        .page-tab-panel { display: none; }
+        .page-tab-panel.active { display: block; }
+        .status-badge-success { color: #166534; background: #dcfce7; padding: 1px 6px; border-radius: 10px; font-size: 11px; }
+        .status-badge-fail { color: #991b1b; background: #fee2e2; padding: 1px 6px; border-radius: 10px; font-size: 11px; }
+    </style>
 </head>
 <body>
     <script src="/assets/js/api.js"></script>
@@ -19,92 +46,156 @@
         let currentPage = 1;
         const pageLimit = 20;
 
+        // API 日志
+        let apiLogPage = 1;
+        const apiLogLimit = 20;
+        let apiKeys = [];
+
         async function initPage() {
             await renderLayout(
                 "submissions",
                 "提交记录",
                 `
-  <section class="card">
-    <div class="card-header">
-      <h3 class="card-title">筛选条件</h3>
-    </div>
-    <div class="grid">
-      <div class="form-group">
-        <label>按表单筛选（form_id）</label>
-        <input id="form_id" type="number" placeholder="输入表单ID" />
-      </div>
-      <div class="form-group">
-        <label>按状态筛选</label>
-        <select id="status_filter">
-          <option value="">全部</option>
-          <option value="spam">疑似垃圾</option>
-          <option value="normal">正常</option>
-          <option value="sent">已发信</option>
-          <option value="not_sent">未发信</option>
-        </select>
-      </div>
-    </div>
-    <div class="actions" style="margin-top: var(--space-md);">
-      <button class="btn btn-primary" id="queryBtn">查询</button>
-      <button class="btn btn-secondary" id="exportBtn">导出 CSV</button>
-      <button class="btn btn-secondary" id="clearBtn">清除筛选</button>
-    </div>
-  </section>
+  <div class="page-tab-bar">
+    <button class="page-tab-btn active" onclick="switchPageTab('form')">表单提交记录</button>
+    <button class="page-tab-btn" onclick="switchPageTab('api')">API 发信记录</button>
+  </div>
 
-  <section class="card">
-    <div class="card-header">
-      <h3 class="card-title">提交记录列表</h3>
-      <div id="resultCount" class="muted"></div>
-    </div>
-    <div id="batchBar" style="display:none;padding:8px 12px;background:var(--color-gray-50);border:1px solid var(--color-gray-200);border-radius:var(--radius-md);margin-bottom:var(--space-md);align-items:center;gap:12px;">
-      <span id="batchCount" style="font-size:var(--text-sm);font-weight:500;"></span>
-      <button class="btn btn-danger btn-sm" onclick="batchDelete()">批量删除</button>
-      <button class="btn btn-secondary btn-sm" onclick="batchExport()">批量导出</button>
-      <button class="btn btn-secondary btn-sm" onclick="clearSelection()" style="margin-left:auto;">取消选择</button>
-    </div>
-    <table>
-      <thead><tr><th style="width:40px;"><input type="checkbox" id="selectAll" onchange="toggleSelectAll(this)" /></th><th>ID</th><th>表单ID</th><th>来源IP</th><th>状态</th><th>数据内容</th><th>创建时间</th><th>操作</th></tr></thead>
-      <tbody id="tbody"></tbody>
-    </table>
-    <div id="pagination" style="display:flex;justify-content:space-between;align-items:center;margin-top:var(--space-md);flex-wrap:wrap;gap:8px;"></div>
-  </section>
-`,
+  <!-- 表单提交记录 -->
+  <div id="tab-form" class="page-tab-panel active">
+    <section class="card">
+      <div class="card-header">
+        <h3 class="card-title">筛选条件</h3>
+      </div>
+      <div class="grid">
+        <div class="form-group">
+          <label>按表单筛选（form_id）</label>
+          <input id="form_id" type="number" placeholder="输入表单ID" />
+        </div>
+        <div class="form-group">
+          <label>按状态筛选</label>
+          <select id="status_filter">
+            <option value="">全部</option>
+            <option value="spam">疑似垃圾</option>
+            <option value="normal">正常</option>
+            <option value="sent">已发信</option>
+            <option value="not_sent">未发信</option>
+          </select>
+        </div>
+      </div>
+      <div class="actions" style="margin-top: var(--space-md);">
+        <button class="btn btn-primary" id="queryBtn">查询</button>
+        <button class="btn btn-secondary" id="exportBtn">导出 CSV</button>
+        <button class="btn btn-secondary" id="clearBtn">清除筛选</button>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="card-header">
+        <h3 class="card-title">提交记录列表</h3>
+        <div id="resultCount" class="muted"></div>
+      </div>
+      <div id="batchBar" style="display:none;padding:8px 12px;background:var(--color-gray-50);border:1px solid var(--color-gray-200);border-radius:var(--radius-md);margin-bottom:var(--space-md);align-items:center;gap:12px;">
+        <span id="batchCount" style="font-size:var(--text-sm);font-weight:500;"></span>
+        <button class="btn btn-danger btn-sm" onclick="batchDelete()">批量删除</button>
+        <button class="btn btn-secondary btn-sm" onclick="batchExport()">批量导出</button>
+        <button class="btn btn-secondary btn-sm" onclick="clearSelection()" style="margin-left:auto;">取消选择</button>
+      </div>
+      <table>
+        <thead><tr><th style="width:40px;"><input type="checkbox" id="selectAll" onchange="toggleSelectAll(this)" /></th><th>ID</th><th>表单ID</th><th>来源IP</th><th>状态</th><th>数据内容</th><th>创建时间</th><th>操作</th></tr></thead>
+        <tbody id="tbody"></tbody>
+      </table>
+      <div id="pagination" style="display:flex;justify-content:space-between;align-items:center;margin-top:var(--space-md);flex-wrap:wrap;gap:8px;"></div>
+    </section>
+  </div>
+
+  <!-- API 发信记录 -->
+  <div id="tab-api" class="page-tab-panel">
+    <section class="card">
+      <div class="card-header">
+        <h3 class="card-title">筛选条件</h3>
+      </div>
+      <div class="grid">
+        <div class="form-group">
+          <label>按 API Key 筛选</label>
+          <select id="api_key_filter">
+            <option value="">全部 Key</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>按状态筛选</label>
+          <select id="api_status_filter">
+            <option value="">全部</option>
+            <option value="success">成功</option>
+            <option value="failed">失败</option>
+          </select>
+        </div>
+      </div>
+      <div class="actions" style="margin-top: var(--space-md);">
+        <button class="btn btn-primary" id="apiQueryBtn">查询</button>
+        <button class="btn btn-secondary" id="apiClearBtn">清除筛选</button>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="card-header">
+        <h3 class="card-title">API 发信日志</h3>
+        <div id="apiResultCount" class="muted"></div>
+      </div>
+      <table class="table">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>API Key</th>
+            <th>收件人</th>
+            <th>主题</th>
+            <th>状态</th>
+            <th>错误信息</th>
+            <th>发送时间</th>
+          </tr>
+        </thead>
+        <tbody id="apiTbody"></tbody>
+      </table>
+      <div id="apiPagination" style="display:flex;justify-content:space-between;align-items:center;margin-top:var(--space-md);flex-wrap:wrap;gap:8px;"></div>
+    </section>
+  </div>
+`
             );
 
+            // 表单记录事件
             document.getElementById("queryBtn").onclick = () => { currentPage = 1; query(); };
-
             document.getElementById("clearBtn").onclick = () => {
                 document.getElementById("form_id").value = "";
                 document.getElementById("status_filter").value = "";
                 currentPage = 1;
                 query();
             };
+            document.getElementById("exportBtn").onclick = doExport;
 
-            document.getElementById("exportBtn").onclick = async () => {
-                try {
-                    const fid = v("form_id").trim();
-                    let url = "/api/submissions/export";
-                    if (fid) url += `?form_id=${encodeURIComponent(fid)}`;
-                    const res = await fetch(url, {
-                        headers: { Authorization: `Bearer ${API.token()}` },
-                    });
-                    if (!res.ok) throw new Error(`导出失败 HTTP ${res.status}`);
-                    const blob = await res.blob();
-                    const a = document.createElement("a");
-                    a.href = URL.createObjectURL(blob);
-                    a.download = `submissions_${new Date().toISOString().split('T')[0]}.csv`;
-                    document.body.appendChild(a);
-                    a.click();
-                    a.remove();
-                    URL.revokeObjectURL(a.href);
-                    toast("导出成功", false);
-                } catch (e) {
-                    toast(e.message, true);
-                }
+            // API 日志事件
+            document.getElementById("apiQueryBtn").onclick = () => { apiLogPage = 1; queryAPILogs(); };
+            document.getElementById("apiClearBtn").onclick = () => {
+                document.getElementById("api_key_filter").value = "";
+                document.getElementById("api_status_filter").value = "";
+                apiLogPage = 1;
+                queryAPILogs();
             };
 
+            // 加载 API Keys 列表填充过滤器
+            loadAPIKeys();
             query();
         }
+
+        function switchPageTab(name) {
+            document.querySelectorAll('.page-tab-btn').forEach((b, i) => {
+                b.classList.toggle('active', (i === 0 && name === 'form') || (i === 1 && name === 'api'));
+            });
+            document.getElementById('tab-form').classList.toggle('active', name === 'form');
+            document.getElementById('tab-api').classList.toggle('active', name === 'api');
+            if (name === 'api') queryAPILogs();
+        }
+
+        // ====== 表单提交记录 ======
 
         async function load(filter = {}) {
             let url = "/api/submissions";
@@ -119,7 +210,6 @@
             const totalPages = Math.max(1, Math.ceil(total / pageLimit));
             currentPage = page;
 
-            // 状态筛选（客户端）
             const statusFilter = filter.status;
             const filtered = statusFilter ? rows.filter(x => {
                 if (statusFilter === "spam") return x.is_spam;
@@ -131,8 +221,7 @@
 
             document.getElementById("resultCount").innerText = `共 ${total} 条记录`;
             document.getElementById("tbody").innerHTML = filtered
-                .map(
-                    (x) => `
+                .map(x => `
     <tr>
       <td><input type="checkbox" class="row-check" value="${x.id}" onchange="updateBatchBar()" /></td>
       <td>${x.id}</td>
@@ -151,13 +240,9 @@
         <button class="btn btn-danger btn-sm" onclick="delById(${x.id})">删除</button>
       </td>
     </tr>
-  `,
-                    )
-                .join("");
+  `).join("");
             document.getElementById("selectAll").checked = false;
             updateBatchBar();
-
-            // 分页控件
             renderPagination(page, totalPages, total);
         }
 
@@ -174,20 +259,15 @@
             el.innerHTML = `<span class="muted" style="font-size:var(--text-sm);">共 ${total} 条</span><div style="display:flex;gap:8px;align-items:center;">${btns}</div>`;
         }
 
-        function goPage(p) {
-            currentPage = p;
-            query();
-        }
+        function goPage(p) { currentPage = p; query(); }
 
         function getSelectedIds() {
             return Array.from(document.querySelectorAll('.row-check:checked')).map(cb => Number(cb.value));
         }
-
         function toggleSelectAll(el) {
             document.querySelectorAll('.row-check').forEach(cb => cb.checked = el.checked);
             updateBatchBar();
         }
-
         function updateBatchBar() {
             const ids = getSelectedIds();
             const bar = document.getElementById("batchBar");
@@ -198,7 +278,6 @@
                 bar.style.display = "none";
             }
         }
-
         function clearSelection() {
             document.querySelectorAll('.row-check').forEach(cb => cb.checked = false);
             document.getElementById("selectAll").checked = false;
@@ -221,17 +300,12 @@
             }
         }
 
-        async function batchExport() {
-            const ids = getSelectedIds();
-            if (ids.length === 0) return;
+        async function doExport() {
             try {
-                // 导出当前筛选条件下的全部数据（不按 ids 过滤，因为 CSV 导出不支持 ids）
                 const fid = v("form_id").trim();
                 let url = "/api/submissions/export";
                 if (fid) url += `?form_id=${encodeURIComponent(fid)}`;
-                const res = await fetch(url, {
-                    headers: { Authorization: `Bearer ${API.token()}` },
-                });
+                const res = await fetch(url, { headers: { Authorization: `Bearer ${API.token()}` } });
                 if (!res.ok) throw new Error(`导出失败 HTTP ${res.status}`);
                 const blob = await res.blob();
                 const a = document.createElement("a");
@@ -247,13 +321,14 @@
             }
         }
 
-        function escapeHtml(s) {
-            return s
-                .replaceAll("&", "&amp;")
-                .replaceAll("<", "&lt;")
-                .replaceAll(">", "&gt;");
+        async function batchExport() {
+            await doExport();
         }
-        
+
+        function escapeHtml(s) {
+            return s.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
+        }
+
         async function delById(id) {
             if (!confirm("确认删除该提交记录？此操作不可撤销。")) return;
             await API.request(`/api/submissions/${id}`, { method: "DELETE" });
@@ -262,12 +337,79 @@
         }
 
         function query() {
-            const filter = {
+            load({
                 formId: v("form_id").trim() || undefined,
                 status: v("status_filter") || undefined,
-            };
-            load(filter).catch((e) => toast(e.message, true));
+            }).catch(e => toast(e.message, true));
         }
+
+        // ====== API 发信记录 ======
+
+        async function loadAPIKeys() {
+            try {
+                apiKeys = await API.request("/api/apikeys");
+                const sel = document.getElementById("api_key_filter");
+                for (const k of apiKeys) {
+                    const opt = document.createElement("option");
+                    opt.value = k.id;
+                    opt.textContent = `${k.name} (${k.key_prefix})`;
+                    sel.appendChild(opt);
+                }
+            } catch (_) {}
+        }
+
+        async function queryAPILogs() {
+            const keyID = v("api_key_filter");
+            const status = v("api_status_filter");
+            let url = `/api/api-logs?page=${apiLogPage}&limit=${apiLogLimit}`;
+            if (keyID) url += `&api_key_id=${encodeURIComponent(keyID)}`;
+
+            try {
+                const res = await API.request(url);
+                const items = (res.items || []).filter(x => {
+                    if (!status) return true;
+                    return x.status === status;
+                });
+                const total = res.total || 0;
+                const page = res.page || 1;
+                const totalPages = Math.max(1, Math.ceil(total / apiLogLimit));
+
+                document.getElementById("apiResultCount").innerText = `共 ${total} 条`;
+                document.getElementById("apiTbody").innerHTML = items.map(x => {
+                    const badge = x.status === 'success'
+                        ? `<span class="status-badge-success">成功</span>`
+                        : `<span class="status-badge-fail">失败</span>`;
+                    return `<tr>
+                      <td>${x.id}</td>
+                      <td style="font-size:var(--text-sm);">${escapeHtml(x.key_name || '')} <span style="color:var(--color-gray-400);font-size:11px;">#${x.api_key_id}</span></td>
+                      <td>${escapeHtml(x.to_email || '')}</td>
+                      <td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${escapeHtml(x.subject || '')}">${escapeHtml(x.subject || '')}</td>
+                      <td>${badge}</td>
+                      <td style="font-size:var(--text-xs);color:var(--color-gray-400);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${escapeHtml(x.error || '')}">${escapeHtml(x.error || '—')}</td>
+                      <td style="font-size:var(--text-sm);">${(x.created_at || '').replace('T', ' ').substring(0, 16)}</td>
+                    </tr>`;
+                }).join("");
+
+                renderAPILogPagination(page, totalPages, total);
+            } catch (e) {
+                document.getElementById("apiTbody").innerHTML = `<tr><td colspan="7" style="text-align:center;color:var(--color-gray-400);">${escapeHtml(e.message)}</td></tr>`;
+            }
+        }
+
+        function renderAPILogPagination(page, totalPages, total) {
+            const el = document.getElementById("apiPagination");
+            if (total <= apiLogLimit) {
+                el.innerHTML = `<span class="muted" style="font-size:var(--text-sm);">共 ${total} 条</span><span></span>`;
+                return;
+            }
+            let btns = '';
+            btns += `<button class="btn btn-secondary btn-sm" onclick="goAPIPage(${page-1})" ${page<=1?'disabled':''}>上一页</button>`;
+            btns += `<span style="font-size:var(--text-sm);">第 ${page} / ${totalPages} 页</span>`;
+            btns += `<button class="btn btn-secondary btn-sm" onclick="goAPIPage(${page+1})" ${page>=totalPages?'disabled':''}>下一页</button>`;
+            el.innerHTML = `<span class="muted" style="font-size:var(--text-sm);">共 ${total} 条</span><div style="display:flex;gap:8px;align-items:center;">${btns}</div>`;
+        }
+
+        function goAPIPage(p) { apiLogPage = p; queryAPILogs(); }
 
         initPage();
     </script>

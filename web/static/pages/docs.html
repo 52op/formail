@@ -60,6 +60,7 @@
                     <a href="#auto-tls">自动 HTTPS</a>
                     <a href="#reverse-proxy">反向代理</a>
                     <a href="#cli">CLI 工具</a>
+                    <a href="#email-api">HTTP 邮件 API</a>
                     <a href="#api">常见 API</a>
                 </nav>
             </aside>
@@ -259,6 +260,72 @@ key = "your_secret_key"         # 请求头值</pre>
                     <p class="muted">CLI 模式仅连接数据库执行更新，执行完毕立即退出，不影响正在运行的服务。</p>
                 </section>
 
+                <section id="email-api" class="block m-card">
+                    <h2>HTTP 邮件 API</h2>
+                    <p>除了表单接收，Formail 还提供 HTTP API，允许通过 API Key 直接发送邮件，无需 HTML 表单。适合程序化发送通知、账单、验证码等场景。</p>
+
+                    <h3 style="font-size: var(--text-base); margin-top: var(--space-md);">获取 API Key</h3>
+                    <ol>
+                        <li>在控制台进入 <code>/dashboard/apikeys</code>。</li>
+                        <li>点击「新建 API Key」，填写名称和可选的绑定渠道。</li>
+                        <li>创建后可在列表中随时复制完整 Key。</li>
+                    </ol>
+
+                    <h3 style="font-size: var(--text-base); margin-top: var(--space-md);">发送接口</h3>
+                    <pre class="code-slab">POST /v1/emails
+Authorization: Bearer fm_your_api_key
+Content-Type: application/json
+
+{
+  "to": "recipient@example.com",
+  "subject": "Hello from Formail",
+  "text": "This is a plain text email.",
+  "html": "&lt;p&gt;This is an &lt;b&gt;HTML&lt;/b&gt; email.&lt;/p&gt;"
+}</pre>
+
+                    <h3 style="font-size: var(--text-base); margin-top: var(--space-md);">参数说明</h3>
+                    <ul>
+                        <li><code>to</code>：收件人，字符串或数组（支持多收件人）</li>
+                        <li><code>subject</code>：邮件主题（必填）</li>
+                        <li><code>text</code>：纯文本正文（text 或 html 至少填一个）</li>
+                        <li><code>html</code>：HTML 正文（可选）</li>
+                    </ul>
+                    <p>发件地址由绑定渠道决定；未绑定则按账号下渠道优先级自动选择。</p>
+
+                    <h3 style="font-size: var(--text-base); margin-top: var(--space-md);">Shell 示例</h3>
+                    <pre class="code-slab">curl -X POST https://your-domain/v1/emails \
+  -H "Authorization: Bearer fm_your_api_key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "to": "recipient@example.com",
+    "subject": "Hello",
+    "text": "Hello from Formail API"
+  }'</pre>
+
+                    <h3 style="font-size: var(--text-base); margin-top: var(--space-md);">PowerShell 示例</h3>
+                    <pre class="code-slab">$headers = @{
+    "Authorization" = "Bearer fm_your_api_key"
+    "Content-Type"  = "application/json"
+}
+$body = @{
+    to      = "recipient@example.com"
+    subject = "Hello"
+    text    = "Hello from Formail API"
+} | ConvertTo-Json
+
+Invoke-RestMethod -Uri "https://your-domain/v1/emails" `
+                  -Method POST `
+                  -Headers $headers `
+                  -Body $body</pre>
+
+                    <h3 style="font-size: var(--text-base); margin-top: var(--space-md);">响应格式</h3>
+                    <p>成功：<code>{"code":200,"data":{"message":"sent"}}</code></p>
+                    <p>失败：<code>{"code":500,"message":"some emails failed: ..."}</code></p>
+
+                    <h3 style="font-size: var(--text-base); margin-top: var(--space-md);">发信记录</h3>
+                    <p>每次 API 发信均会记录日志，可在控制台「提交记录 → API 发信记录」查看，也可在「数据统计」页面查看 API 发信统计。</p>
+                </section>
+
                 <section id="api" class="block m-card">
                     <h2>常见 API</h2>
                     <h3 style="font-size: var(--text-base); margin-top: var(--space-md);">公开接口</h3>
@@ -292,7 +359,18 @@ key = "your_secret_key"         # 请求头值</pre>
                         <li><code>GET /api/stats/daily?days=30</code> - 每日趋势</li>
                         <li><code>GET /api/stats/forms</code> - 表单排行</li>
                         <li><code>GET /api/stats/channels</code> - 渠道统计</li>
+                        <li><code>GET /api/stats/api</code> - API 发信统计</li>
+                        <li><code>GET /api/apikeys</code> - API Key 列表</li>
+                        <li><code>POST /api/apikeys</code> - 创建 API Key（<code>{"name":"...","channel_id":0}</code>）</li>
+                        <li><code>PUT /api/apikeys/:id</code> - 修改 API Key 渠道绑定</li>
+                        <li><code>DELETE /api/apikeys/:id</code> - 删除 API Key</li>
+                        <li><code>GET /api/api-logs</code> - API 发信日志（可传 <code>api_key_id</code>、<code>page</code>）</li>
                         <li><code>GET /api/mail-queue</code> - 邮件队列列表（管理员）</li>
+                    </ul>
+                    <h3 style="font-size: var(--text-base); margin-top: var(--space-md);">API Key 鉴权接口</h3>
+                    <p class="muted" style="margin-bottom: var(--space-sm);">需在请求头添加 <code>Authorization: Bearer fm_xxx</code>（API Key 格式）</p>
+                    <ul>
+                        <li><code>POST /v1/emails</code> - 通过 API Key 发送邮件（详见<a href="#email-api">HTTP 邮件 API</a>）</li>
                     </ul>
                 </section>
             </main>

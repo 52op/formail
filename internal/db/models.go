@@ -73,3 +73,25 @@ type Submission struct {
 	SendError string            `json:"send_error"`
 	CreatedAt string            `json:"created_at"`
 }
+
+type APIKey struct {
+	ID         int64  `json:"id"`
+	UserID     int64  `json:"user_id"`
+	Name       string `json:"name"`
+	KeyPrefix  string `json:"key_prefix"`
+	ChannelID  int64  `json:"channel_id"`
+	CreatedAt  string `json:"created_at"`
+	LastUsedAt string `json:"last_used_at,omitempty"`
+	Enabled    bool   `json:"enabled"`
+}
+
+type APILog struct {
+	ID       int64  `json:"id"`
+	APIKeyID int64  `json:"api_key_id"`
+	UserID   int64  `json:"user_id"`
+	To       string `json:"to"`
+	Subject  string `json:"subject"`
+	Status   string `json:"status"`
+	Error    string `json:"error,omitempty"`
+	CreatedAt string `json:"created_at"`
+}

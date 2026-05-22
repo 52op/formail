@@ -1,0 +1,593 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Formail - API Keys</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/assets/css/style.css" />
+    <style>
+        .key-mono {
+            font-family: 'Courier New', Courier, monospace;
+            font-size: var(--text-sm);
+            background: var(--color-gray-100);
+            padding: 2px 6px;
+            border-radius: var(--radius-sm);
+            letter-spacing: 0.03em;
+        }
+        .reveal-box {
+            background: #f0fdf4;
+            border: 1px solid #86efac;
+            border-radius: var(--radius-md);
+            padding: var(--space-md);
+            margin-top: var(--space-sm);
+        }
+        .reveal-box .reveal-key {
+            font-family: 'Courier New', Courier, monospace;
+            font-size: var(--text-sm);
+            word-break: break-all;
+            color: #166534;
+            margin: var(--space-sm) 0;
+        }
+        .reveal-box .warn {
+            font-size: var(--text-sm);
+            color: #dc2626;
+            font-weight: 500;
+        }
+        .status-dot {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            margin-right: 6px;
+        }
+        .status-dot.active { background: #22c55e; }
+        .status-dot.inactive { background: #d1d5db; }
+        .empty-state {
+            text-align: center;
+            padding: var(--space-xl) 0;
+            color: var(--color-gray-400);
+        }
+        .tab-bar {
+            display: flex;
+            gap: 4px;
+            margin-bottom: var(--space-sm);
+            border-bottom: 1px solid var(--color-gray-200);
+        }
+        .tab-btn {
+            padding: 6px 14px;
+            font-size: var(--text-sm);
+            border: none;
+            background: none;
+            cursor: pointer;
+            color: var(--color-gray-500);
+            border-bottom: 2px solid transparent;
+            margin-bottom: -1px;
+            border-radius: 0;
+        }
+        .tab-btn.active {
+            color: var(--color-primary);
+            border-bottom-color: var(--color-primary);
+            font-weight: 500;
+        }
+        .tab-panel { display: none; }
+        .tab-panel.active { display: block; }
+        .code-wrap {
+            position: relative;
+        }
+        .code-block {
+            background: var(--color-gray-900, #111827);
+            color: #e5e7eb;
+            border-radius: var(--radius-sm);
+            padding: var(--space-md);
+            padding-right: 70px;
+            overflow-x: auto;
+            font-size: 12px;
+            line-height: 1.7;
+            white-space: pre;
+            font-family: 'Courier New', Courier, monospace;
+        }
+        .code-copy-btn {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            padding: 4px 10px;
+            font-size: 11px;
+            background: rgba(255,255,255,0.12);
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 4px;
+            color: #e5e7eb;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+        .code-copy-btn:hover { background: rgba(255,255,255,0.2); }
+        .doc-field-list {
+            margin-top: var(--space-sm);
+            padding-left: var(--space-md);
+            font-size: var(--text-sm);
+            color: var(--color-gray-600);
+            line-height: 2;
+        }
+        .channel-badge {
+            font-size: 11px;
+            background: var(--color-gray-100);
+            color: var(--color-gray-500);
+            padding: 1px 6px;
+            border-radius: 10px;
+        }
+        .channel-badge.bound {
+            background: #dbeafe;
+            color: #1d4ed8;
+        }
+
+        /* modal — inline 确保不依赖外部 CSS 加载顺序 */
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.45);
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 16px;
+        }
+        .modal {
+            background: #fff;
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.25);
+            width: 100%;
+            max-width: 480px;
+            max-height: 90vh;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+        }
+        .modal-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 20px 24px;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        .modal-header h3 { margin: 0; font-size: 1rem; font-weight: 600; }
+        .modal-close {
+            background: none; border: none; cursor: pointer;
+            font-size: 1.2rem; color: #9ca3af; padding: 4px;
+            line-height: 1; border-radius: 4px;
+        }
+        .modal-close:hover { background: #f3f4f6; color: #374151; }
+        .modal-body { padding: 20px 24px; flex: 1; }
+        .modal-footer {
+            display: flex; justify-content: flex-end;
+            gap: 8px; padding: 12px 24px;
+            border-top: 1px solid #e5e7eb;
+        }
+    </style>
+</head>
+<body>
+    <script src="/assets/js/api.js"></script>
+    <script src="/assets/js/layout.js"></script>
+    <script>
+        requireAuth();
+
+        let newKeyFull = null;
+        let allChannels = [];
+        let editChannelKeyID = null;
+
+        // renderLayout 会清空整个 body，所以 modal 必须在 renderLayout 之后动态注入
+        function injectModals() {
+            const wrapper = document.createElement('div');
+            wrapper.innerHTML = `
+<!-- 新建 Key 弹窗 -->
+<div class="modal-overlay" id="createModal" style="display:none">
+    <div class="modal">
+        <div class="modal-header">
+            <h3>新建 API Key</h3>
+            <button class="modal-close" onclick="closeCreateModal()">✕</button>
+        </div>
+        <div class="modal-body">
+            <div id="createForm">
+                <div class="form-group">
+                    <label class="form-label">Key 名称</label>
+                    <input class="form-input" id="keyName" placeholder="例如：我的应用" />
+                </div>
+                <div class="form-group" style="margin-top: var(--space-sm);">
+                    <label class="form-label">绑定渠道（可选）</label>
+                    <select class="form-input" id="keyChannelID">
+                        <option value="0">自动选择（按优先级）</option>
+                    </select>
+                    <div style="font-size:var(--text-sm);color:var(--color-gray-400);margin-top:4px;">不绑定则由系统按优先级自动选择可用渠道</div>
+                </div>
+            </div>
+            <div id="revealBox" class="reveal-box" style="display:none">
+                <p class="warn">⚠️ 请保存此 API Key，关闭后仍可在列表中复制。</p>
+                <p class="reveal-key" id="revealKey"></p>
+                <button class="btn btn-secondary btn-sm" onclick="copyNewKey()">复制</button>
+            </div>
+        </div>
+        <div class="modal-footer" id="createFooter">
+            <button class="btn btn-secondary" onclick="closeCreateModal()">取消</button>
+            <button class="btn btn-primary" onclick="doCreate()">创建</button>
+        </div>
+        <div class="modal-footer" id="closeFooter" style="display:none">
+            <button class="btn btn-primary" onclick="closeCreateModal()">已保存，关闭</button>
+        </div>
+    </div>
+</div>
+
+<!-- 修改渠道弹窗 -->
+<div class="modal-overlay" id="editChannelModal" style="display:none">
+    <div class="modal">
+        <div class="modal-header">
+            <h3>修改绑定渠道</h3>
+            <button class="modal-close" onclick="closeEditChannelModal()">✕</button>
+        </div>
+        <div class="modal-body">
+            <p style="font-size:var(--text-sm);color:var(--color-gray-500);margin-bottom:var(--space-sm);">
+                Key：<strong id="editChannelKeyName"></strong>
+            </p>
+            <div class="form-group">
+                <label class="form-label">绑定渠道</label>
+                <select class="form-input" id="editChannelID">
+                    <option value="0">自动选择（按优先级）</option>
+                </select>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="closeEditChannelModal()">取消</button>
+            <button class="btn btn-primary" onclick="doEditChannel()">保存</button>
+        </div>
+    </div>
+</div>
+
+<!-- 删除确认弹窗 -->
+<div class="modal-overlay" id="deleteModal" style="display:none">
+    <div class="modal">
+        <div class="modal-header">
+            <h3>删除 API Key</h3>
+            <button class="modal-close" onclick="closeDeleteModal()">✕</button>
+        </div>
+        <div class="modal-body">
+            <p>确定要删除 API Key <strong id="deleteKeyName"></strong> 吗？删除后将立即失效。</p>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="closeDeleteModal()">取消</button>
+            <button class="btn btn-danger" onclick="doDelete()">删除</button>
+        </div>
+    </div>
+</div>`;
+            // 将所有 modal 节点附加到 body（renderLayout 已清空并重建 body）
+            while (wrapper.firstChild) {
+                document.body.appendChild(wrapper.firstChild);
+            }
+        }
+
+        async function initPage() {
+            await renderLayout(
+                "apikeys",
+                "API Keys",
+                `
+  <section class="card">
+    <div class="card-header">
+      <h3 class="card-title">API Key 列表</h3>
+      <button class="btn btn-primary" onclick="openCreateModal()">+ 新建 API Key</button>
+    </div>
+    <div id="keyList">
+      <div class="empty-state">加载中...</div>
+    </div>
+  </section>
+
+  <section class="card" style="margin-top: var(--space-md);">
+    <div class="card-header"><h3 class="card-title">使用说明</h3></div>
+    <div style="font-size: var(--text-sm); color: var(--color-gray-600); line-height: 1.8;">
+      <p>通过 HTTP API 发送邮件，使用 <code class="key-mono">Authorization: Bearer &lt;API_KEY&gt;</code> 头认证。</p>
+      <p style="margin-top: var(--space-sm);">发信接口：<code class="key-mono">POST /v1/emails</code></p>
+
+      <div class="tab-bar" style="margin-top: var(--space-md);">
+        <button class="tab-btn active" onclick="switchTab('shell')">Shell / Linux</button>
+        <button class="tab-btn" onclick="switchTab('ps')">PowerShell</button>
+        <button class="tab-btn" onclick="switchTab('cmd')">CMD</button>
+      </div>
+
+      <div id="tab-shell" class="tab-panel active">
+        <div class="code-wrap">
+          <div class="code-block" id="code-shell"></div>
+          <button class="code-copy-btn" onclick="copyCode('code-shell', this)">复制</button>
+        </div>
+      </div>
+      <div id="tab-ps" class="tab-panel">
+        <div class="code-wrap">
+          <div class="code-block" id="code-ps"></div>
+          <button class="code-copy-btn" onclick="copyCode('code-ps', this)">复制</button>
+        </div>
+      </div>
+      <div id="tab-cmd" class="tab-panel">
+        <div class="code-wrap">
+          <div class="code-block" id="code-cmd"></div>
+          <button class="code-copy-btn" onclick="copyCode('code-cmd', this)">复制</button>
+        </div>
+      </div>
+
+      <ul class="doc-field-list">
+        <li><code class="key-mono">to</code>：收件人，支持字符串或数组（多收件人）</li>
+        <li><code class="key-mono">subject</code>：邮件主题（必填）</li>
+        <li><code class="key-mono">text</code>：纯文本正文（text 或 html 至少填一个）</li>
+        <li><code class="key-mono">html</code>：HTML 正文（可选）</li>
+      </ul>
+      <p style="margin-top: var(--space-sm);">发件地址由绑定渠道决定；未绑定则按账号下渠道优先级自动选择。</p>
+    </div>
+  </section>
+                `
+            );
+
+            // renderLayout 替换了整个 body，在这里注入 modal
+            injectModals();
+
+            await loadChannels();
+            loadKeys();
+            fillCodeExamples();
+        }
+
+        function switchTab(name) {
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+            document.querySelector(`.tab-btn[onclick="switchTab('${name}')"]`).classList.add('active');
+            document.getElementById('tab-' + name).classList.add('active');
+        }
+
+        function fillCodeExamples(keyVal) {
+            const origin = window.location.origin;
+            keyVal = keyVal || window._firstKeyForDoc || '<YOUR_API_KEY>';
+
+            document.getElementById('code-shell').textContent =
+`curl -X POST ${origin}/v1/emails \\
+  -H "Authorization: Bearer ${keyVal}" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "to": "recipient@example.com",
+    "subject": "Hello from Formail",
+    "text": "This is a plain text email.",
+    "html": "<p>This is an <b>HTML</b> email.</p>"
+  }'`;
+
+            document.getElementById('code-ps').textContent =
+`$headers = @{
+    "Authorization" = "Bearer ${keyVal}"
+    "Content-Type"  = "application/json"
+}
+$body = @{
+    to      = "recipient@example.com"
+    subject = "Hello from Formail"
+    text    = "This is a plain text email."
+    html    = "<p>This is an <b>HTML</b> email.</p>"
+} | ConvertTo-Json
+
+Invoke-RestMethod -Uri "${origin}/v1/emails" \`
+                  -Method POST \`
+                  -Headers $headers \`
+                  -Body $body`;
+
+            document.getElementById('code-cmd').textContent =
+`curl -X POST ${origin}/v1/emails ^
+  -H "Authorization: Bearer ${keyVal}" ^
+  -H "Content-Type: application/json" ^
+  -d "{\\"to\\":\\"recipient@example.com\\",\\"subject\\":\\"Hello from Formail\\",\\"text\\":\\"This is a plain text email.\\"}"`;
+        }
+
+        function copyCode(id, btn) {
+            const text = document.getElementById(id).textContent;
+            navigator.clipboard.writeText(text)
+                .then(() => { btn.textContent = '✓ 已复制'; setTimeout(() => { btn.textContent = '复制'; }, 1800); })
+                .catch(() => toast('复制失败', true));
+        }
+
+        async function loadChannels() {
+            try {
+                allChannels = await API.request("/api/channels/bindable");
+            } catch (_) {
+                allChannels = [];
+            }
+        }
+
+        function buildChannelOptions(selectedID) {
+            let html = `<option value="0"${!selectedID || selectedID == 0 ? ' selected' : ''}>自动选择（按优先级）</option>`;
+            for (const ch of allChannels) {
+                html += `<option value="${ch.id}"${ch.id == selectedID ? ' selected' : ''}>${escHtml(ch.name)}</option>`;
+            }
+            return html;
+        }
+
+        async function loadKeys() {
+            try {
+                const keys = await API.request("/api/apikeys");
+                renderKeys(keys);
+                if (keys && keys.length > 0 && keys[0].key) {
+                    window._firstKeyForDoc = keys[0].key;
+                    fillCodeExamples(keys[0].key);
+                }
+            } catch (e) {
+                document.getElementById("keyList").innerHTML =
+                    `<div class="empty-state">${escHtml(e.message)}</div>`;
+            }
+        }
+
+        function channelLabel(id) {
+            if (!id || id == 0) return '<span class="channel-badge">自动</span>';
+            const ch = allChannels.find(c => c.id == id);
+            return ch
+                ? `<span class="channel-badge bound">${escHtml(ch.name)}</span>`
+                : `<span class="channel-badge bound">#${id}</span>`;
+        }
+
+        function renderKeys(keys) {
+            const el = document.getElementById("keyList");
+            if (!keys || keys.length === 0) {
+                el.innerHTML = `<div class="empty-state">暂无 API Key，点击「新建 API Key」创建第一个</div>`;
+                return;
+            }
+            el.innerHTML = `
+              <table class="table">
+                <thead>
+                  <tr>
+                    <th>名称</th>
+                    <th>API Key</th>
+                    <th>绑定渠道</th>
+                    <th>最后使用</th>
+                    <th>创建时间</th>
+                    <th>状态</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${keys.map(k => {
+                    // 将 key 存入 data 属性，避免特殊字符在 onclick 字符串中引发问题
+                    const keyDataAttr = k.key ? ` data-key="${escHtml(k.key)}"` : '';
+                    return `<tr>
+                      <td>${escHtml(k.name)}</td>
+                      <td>
+                        <span class="key-mono">${escHtml(k.key_prefix)}</span>
+                        ${k.key ? `<button class="btn btn-secondary btn-sm" style="margin-left:6px;" onclick="copyRowKey(this)"${keyDataAttr}>复制</button>` : ''}
+                      </td>
+                      <td>${channelLabel(k.channel_id)}</td>
+                      <td>${k.last_used_at ? fmtDate(k.last_used_at) : "—"}</td>
+                      <td>${fmtDate(k.created_at)}</td>
+                      <td>
+                        <span class="status-dot ${k.enabled ? 'active' : 'inactive'}"></span>
+                        ${k.enabled ? "启用" : "已禁用"}
+                      </td>
+                      <td style="white-space:nowrap;">
+                        <button class="btn btn-secondary btn-sm" onclick="openEditChannelModal(${k.id}, '${escHtml(k.name).replace(/'/g, "\\'")}', ${k.channel_id || 0})">改渠道</button>
+                        <button class="btn btn-danger btn-sm" style="margin-left:4px;" onclick="openDeleteModal(${k.id}, '${escHtml(k.name).replace(/'/g, "\\'")}')">删除</button>
+                      </td>
+                    </tr>`;
+                  }).join("")}
+                </tbody>
+              </table>
+            `;
+        }
+
+        function copyRowKey(btn) {
+            const key = btn.getAttribute('data-key');
+            if (!key) { toast('Key 数据为空', true); return; }
+            navigator.clipboard.writeText(key)
+                .then(() => { btn.textContent = "✓"; setTimeout(() => { btn.textContent = "复制"; }, 1500); })
+                .catch(() => toast("复制失败", true));
+        }
+
+        function escHtml(s) {
+            return String(s)
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;");
+        }
+
+        function fmtDate(s) {
+            if (!s) return "—";
+            return s.replace("T", " ").substring(0, 16);
+        }
+
+        // ===== 新建 Key =====
+        function openCreateModal() {
+            document.getElementById("keyName").value = "";
+            document.getElementById("keyChannelID").innerHTML = buildChannelOptions(0);
+            document.getElementById("createForm").style.display = "";
+            document.getElementById("revealBox").style.display = "none";
+            document.getElementById("createFooter").style.display = "";
+            document.getElementById("closeFooter").style.display = "none";
+            newKeyFull = null;
+            document.getElementById("createModal").style.display = "flex";
+            setTimeout(() => document.getElementById("keyName").focus(), 50);
+        }
+
+        function closeCreateModal() {
+            document.getElementById("createModal").style.display = "none";
+            if (newKeyFull) loadKeys();
+            newKeyFull = null;
+        }
+
+        async function doCreate() {
+            const name = document.getElementById("keyName").value.trim();
+            if (!name) { toast("请输入 Key 名称", true); return; }
+            const channelID = parseInt(document.getElementById("keyChannelID").value) || 0;
+            try {
+                const res = await API.request("/api/apikeys", {
+                    method: "POST",
+                    body: JSON.stringify({ name, channel_id: channelID }),
+                });
+                newKeyFull = res.key;
+                document.getElementById("revealKey").textContent = res.key;
+                document.getElementById("createForm").style.display = "none";
+                document.getElementById("revealBox").style.display = "";
+                document.getElementById("createFooter").style.display = "none";
+                document.getElementById("closeFooter").style.display = "";
+            } catch (e) {
+                toast(e.message, true);
+            }
+        }
+
+        function copyNewKey() {
+            if (!newKeyFull) return;
+            navigator.clipboard.writeText(newKeyFull)
+                .then(() => toast("已复制到剪贴板"))
+                .catch(() => toast("复制失败", true));
+        }
+
+        // ===== 修改渠道 =====
+        function openEditChannelModal(id, name, channelID) {
+            editChannelKeyID = id;
+            document.getElementById("editChannelKeyName").textContent = name;
+            document.getElementById("editChannelID").innerHTML = buildChannelOptions(channelID);
+            document.getElementById("editChannelModal").style.display = "flex";
+        }
+
+        function closeEditChannelModal() {
+            document.getElementById("editChannelModal").style.display = "none";
+            editChannelKeyID = null;
+        }
+
+        async function doEditChannel() {
+            if (!editChannelKeyID) return;
+            const channelID = parseInt(document.getElementById("editChannelID").value) || 0;
+            try {
+                await API.request(`/api/apikeys/${editChannelKeyID}`, {
+                    method: "PUT",
+                    body: JSON.stringify({ channel_id: channelID }),
+                });
+                toast("渠道已更新");
+                closeEditChannelModal();
+                loadKeys();
+            } catch (e) {
+                toast(e.message, true);
+            }
+        }
+
+        // ===== 删除 =====
+        let deleteID = null;
+        function openDeleteModal(id, name) {
+            deleteID = id;
+            document.getElementById("deleteKeyName").textContent = name;
+            document.getElementById("deleteModal").style.display = "flex";
+        }
+        function closeDeleteModal() {
+            document.getElementById("deleteModal").style.display = "none";
+            deleteID = null;
+        }
+        async function doDelete() {
+            if (!deleteID) return;
+            try {
+                await API.request(`/api/apikeys/${deleteID}`, { method: "DELETE" });
+                toast("已删除");
+                closeDeleteModal();
+                loadKeys();
+            } catch (e) {
+                toast(e.message, true);
+            }
+        }
+
+        initPage();
+    </script>
+</body>
+</html>

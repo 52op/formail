@@ -77,6 +77,12 @@ function iconLogOut() {
   </svg>`;
 }
 
+function iconAPIKeys() {
+  return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/>
+  </svg>`;
+}
+
 function iconDocs() {
   return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
     <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
@@ -206,6 +212,7 @@ function navItemsHTML(active) {
     ["/dashboard/forms", "表单管理", "forms", iconForms()],
     ["/dashboard/channels", "邮件渠道", "channels", iconChannels()],
     ["/dashboard/submissions", "提交记录", "submissions", iconSubmissions()],
+    ["/dashboard/apikeys", "API Keys", "apikeys", iconAPIKeys()],
     ["/dashboard/stats", "数据统计", "stats", iconStats()],
     ["/docs", "文档中心", "docs", iconDocs()],
   ];

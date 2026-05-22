@@ -147,6 +147,31 @@ func migrate(db *sql.DB) error {
 			created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 			updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 		);`,
+		`CREATE TABLE IF NOT EXISTS api_keys (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			user_id INTEGER NOT NULL,
+			name TEXT NOT NULL,
+			key_prefix TEXT NOT NULL,
+			key_hash TEXT NOT NULL UNIQUE,
+			key_enc TEXT NOT NULL DEFAULT '',
+			channel_id INTEGER NOT NULL DEFAULT 0,
+			created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			last_used_at DATETIME,
+			enabled INTEGER NOT NULL DEFAULT 1,
+			FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+		);`,
+		`CREATE TABLE IF NOT EXISTS api_logs (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			api_key_id INTEGER NOT NULL,
+			user_id INTEGER NOT NULL,
+			to_email TEXT NOT NULL,
+			subject TEXT NOT NULL,
+			status TEXT NOT NULL,
+			error TEXT NOT NULL DEFAULT '',
+			created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+		);`,
+		`CREATE INDEX IF NOT EXISTS idx_api_logs_user ON api_logs(user_id, created_at);`,
+		`CREATE INDEX IF NOT EXISTS idx_api_logs_key ON api_logs(api_key_id, created_at);`,
 		`CREATE INDEX IF NOT EXISTS idx_forms_token ON forms(token);`,
 		`CREATE INDEX IF NOT EXISTS idx_channels_priority ON channels(priority, enabled);`,
 		`CREATE INDEX IF NOT EXISTS idx_submissions_form_id ON submissions(form_id, created_at);`,
@@ -154,6 +179,8 @@ func migrate(db *sql.DB) error {
 		`CREATE INDEX IF NOT EXISTS idx_captcha_ip_created ON captcha_challenges(ip, created_at);`,
 		`CREATE INDEX IF NOT EXISTS idx_code_request_logs_fp_created ON code_request_logs(fingerprint, created_at);`,
 		`CREATE INDEX IF NOT EXISTS idx_mail_jobs_pick ON mail_jobs(status, next_retry_at, id);`,
+		`CREATE INDEX IF NOT EXISTS idx_api_keys_user ON api_keys(user_id, enabled);`,
+		`CREATE INDEX IF NOT EXISTS idx_api_keys_hash ON api_keys(key_hash);`,
 	}
 
 	for _, stmt := range schema {
@@ -220,6 +247,9 @@ func migrate(db *sql.DB) error {
 		return err
 	}
 	if err := ensureOwnershipIndexes(db); err != nil {
+		return err
+	}
+	if err := ensureAPIKeyColumns(db); err != nil {
 		return err
 	}
 	if _, err := db.Exec(`UPDATE users SET role='user' WHERE role IS NULL OR role=''`); err != nil {
@@ -449,6 +479,29 @@ func primaryAdminID(db *sql.DB) (int64, error) {
 var allowedTables = map[string]bool{
 	"users": true, "forms": true, "channels": true,
 	"submissions": true, "captcha_challenges": true, "settings": true,
+	"api_keys": true,
+}
+
+func ensureAPIKeyColumns(db *sql.DB) error {
+	cols := []struct {
+		Name string
+		DDL  string
+	}{
+		{Name: "channel_id", DDL: `ALTER TABLE api_keys ADD COLUMN channel_id INTEGER NOT NULL DEFAULT 0`},
+		{Name: "key_enc", DDL: `ALTER TABLE api_keys ADD COLUMN key_enc TEXT NOT NULL DEFAULT ''`},
+	}
+	for _, col := range cols {
+		has, err := tableHasColumn(db, "api_keys", col.Name)
+		if err != nil {
+			return err
+		}
+		if !has {
+			if _, err := db.Exec(col.DDL); err != nil {
+				return fmt.Errorf("add api_keys.%s failed: %w", col.Name, err)
+			}
+		}
+	}
+	return nil
 }
 
 func tableHasColumn(db *sql.DB, table, column string) (bool, error) {

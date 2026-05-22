@@ -119,6 +119,14 @@ func main() {
 		auth.GET("/stats/daily", h.StatsDaily)
 		auth.GET("/stats/forms", h.StatsForms)
 		auth.GET("/stats/channels", h.StatsChannels)
+
+		auth.GET("/apikeys", h.ListAPIKeys)
+		auth.POST("/apikeys", h.CreateAPIKey)
+		auth.PUT("/apikeys/:id", h.UpdateAPIKey)
+		auth.DELETE("/apikeys/:id", h.DeleteAPIKey)
+
+		auth.GET("/api-logs", h.ListAPILogs)
+		auth.GET("/stats/api", h.StatsAPIOverview)
 	}
 
 	admin := auth.Group("")
@@ -146,6 +154,14 @@ func main() {
 	rl := middleware.NewRateLimiter(cfg.Spam.RateLimitPerMinute)
 	r.POST("/f/:token", rl.Middleware(), h.SubmitForm)
 	r.GET("/verify/:token", h.VerifyEmail)
+
+	v1 := r.Group("/v1")
+	v1.Use(middleware.RequireAPIKey(database))
+	{
+		v1.POST("/emails", h.SendEmailAPI)
+	}
+
+	r.GET("/dashboard/apikeys", func(c *gin.Context) { servePage(c, "/apikeys.html") })
 
 	if cfg.Server.AutoTLS {
 		startAutoTLS(r, cfg)

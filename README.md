@@ -1,6 +1,6 @@
 # Formail
 
-Formail 是一个基于 Go 的轻量化静态网站表单接收与邮件转发系统，定位对标 Formspree，支持私有化部署、可视化后台管理、多邮件渠道、垃圾提交防护与提交数据管理。
+Formail 是一个基于 Go 的轻量化静态网站表单接收与邮件转发系统，定位对标 Formspree，支持私有化部署、可视化后台管理、多邮件渠道、垃圾提交防护与提交数据管理。同时提供类 Resend 的 **HTTP 邮件发送 API**，支持通过 API Key 直接发送邮件，适合程序化通知场景。
 
 ## 1. 功能总览
 
@@ -22,10 +22,15 @@ Formail 是一个基于 Go 的轻量化静态网站表单接收与邮件转发�
 - 提交记录：分页查询、删除、批量删除、CSV 导出
 - 表单字段自定义：通过 `fields_schema` 定义字段名称、类型、是否必填，提交时自动校验
 - Webhook 通知：表单提交后可推送到外部 URL，支持 HMAC-SHA256 签名
-- 数据统计仪表盘：总表单/提交数、每日趋势图、表单排行、渠道统计
+- 数据统计仪表盘：总表单/提交数、每日趋势图、表单排行、渠道统计、API 发信统计
 - 邮件队列可视化：查看待处理/失败邮件任务，手动重试
 - 自动回复：表单提交后自动向提交者发送确认邮件
 - 成功页面主题：蓝色/绿色/紫色/橙色/深色 5 种主题可选
+- **HTTP 邮件发送 API**：
+  - 通过 API Key 认证（`Authorization: Bearer fm_xxx`）
+  - `POST /v1/emails` 支持纯文本 + HTML，`to` 支持字符串或数组
+  - 每个 API Key 可绑定指定渠道，或自动按优先级选择
+  - 完整发信日志，可在「提交记录 → API 发信记录」查看
 - 安全与治理：
   - JWT 后台鉴权
   - 提交数据加密存储（AES-GCM）
@@ -275,10 +280,34 @@ Formail 支持通过命令行参数执行管理操作。CLI 模式仅连接数�
 - `GET /api/submissions/export?form_id=1` CSV 导出
 
 **数据统计**
-- `GET /api/stats/overview` 总览（总表单/总提交/今日/发送率）
+- `GET /api/stats/overview` 总览（总表单/总提交/今日/发送率/API发信）
 - `GET /api/stats/daily?days=30` 每日趋势
 - `GET /api/stats/forms` 表单排行
 - `GET /api/stats/channels` 渠道统计
+- `GET /api/stats/api` API 发信统计（成功数/失败数/今日）
+
+**API Key 管理**
+- `GET /api/apikeys` API Key 列表（含可复制的完整 Key）
+- `POST /api/apikeys` 创建 API Key（可绑定渠道）
+- `PUT /api/apikeys/:id` 修改 API Key 渠道绑定
+- `DELETE /api/apikeys/:id` 删除 API Key
+- `GET /api/api-logs?page=1&api_key_id=1` API 发信日志
+
+### HTTP 邮件 API（API Key 鉴权）
+
+- `POST /v1/emails` 发送邮件
+
+```bash
+curl -X POST https://your-domain/v1/emails \
+  -H "Authorization: Bearer fm_your_api_key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "to": "recipient@example.com",
+    "subject": "Hello",
+    "text": "Hello from Formail",
+    "html": "<p>Hello from <b>Formail</b></p>"
+  }'
+```
 
 ### 仅管理员
 
