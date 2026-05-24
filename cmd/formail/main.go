@@ -12,6 +12,7 @@ import (
 	"formail/internal/db"
 	"formail/internal/handlers"
 	"formail/internal/middleware"
+	"formail/internal/utils"
 
 	"github.com/caddyserver/certmagic"
 	"github.com/gin-gonic/gin"
@@ -79,6 +80,13 @@ func main() {
 	r.GET("/dashboard/stats", func(c *gin.Context) { servePage(c, "/stats.html") })
 	r.GET("/dashboard/queue", func(c *gin.Context) { servePage(c, "/queue.html") })
 
+	r.GET("/api/app-config", func(c *gin.Context) {
+		utils.OK(c, gin.H{
+			"auth_mode": cfg.Security.AuthMode,
+			"sso_url":   cfg.Security.SSOIssuer,
+		})
+	})
+
 	r.POST("/api/auth/login", h.Login)
 	r.POST("/api/auth/login-code", h.LoginByEmailCode)
 	r.GET("/api/auth/captcha", h.GetCaptcha)
@@ -90,8 +98,25 @@ func main() {
 	r.GET("/api/auth/reject", h.RejectRegistration)
 	r.GET("/api/auth/reg-status", h.RegStatus)
 
+	// 根据 auth_mode 选择认证中间件
+	var authMiddleware gin.HandlerFunc
+	if cfg.Security.AuthMode == "sso" {
+		pub, err := middleware.ParseRSAPublicKey(cfg.Security.SSOPublicKey)
+		if err != nil {
+			log.Fatalf("解析 SSO 公钥失败: %v", err)
+		}
+		cookieName := cfg.Security.SSOCookieName
+		if cookieName == "" {
+			cookieName = "_goauth_token"
+		}
+		authMiddleware = middleware.RequireAuthSSO(pub, cookieName, cfg.Security.SSOIssuer)
+		fmt.Println("✅ SSO 模式已启用，认证由 GoAuth 负责")
+	} else {
+		authMiddleware = middleware.RequireAuth(cfg.Security.JWTSecret)
+	}
+
 	auth := r.Group("/api")
-	auth.Use(middleware.RequireAuth(cfg.Security.JWTSecret))
+	auth.Use(authMiddleware)
 	{
 		auth.GET("/auth/me", h.Me)
 		auth.POST("/auth/change-password", h.ChangePassword)

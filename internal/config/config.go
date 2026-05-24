@@ -40,6 +40,11 @@ type DatabaseConfig struct {
 type SecurityConfig struct {
 	JWTSecret     string `toml:"jwt_secret"`
 	EncryptionKey string `toml:"encryption_key"`
+	// SSO 配置（auth_mode = "sso" 时生效）
+	AuthMode      string `toml:"auth_mode"`       // "standalone"（默认）或 "sso"
+	SSOIssuer     string `toml:"sso_issuer"`      // GoAuth 地址
+	SSOPublicKey  string `toml:"sso_public_key"`  // GoAuth RSA 公钥（PEM，多行用 \n 连接）
+	SSOCookieName string `toml:"sso_cookie_name"` // 默认 _goauth_token
 }
 
 type SpamConfig struct {
@@ -70,6 +75,8 @@ func Default() Config {
 		Security: SecurityConfig{
 			JWTSecret:     "change-this-jwt-secret",
 			EncryptionKey: "change-this-32-byte-encryption-key!!",
+			AuthMode:      "standalone",
+			SSOCookieName: "_goauth_token",
 		},
 		Spam: SpamConfig{
 			RateLimitPerMinute: 30,
@@ -130,8 +137,13 @@ path = "%s"               # SQLite 数据库文件路径
 
 # 安全配置（请务必修改默认值！）
 [security]
-jwt_secret = "%s"         # JWT 签名密钥
+jwt_secret = "%s"         # JWT 签名密钥（standalone 模式使用）
 encryption_key = "%s"     # AES-256 加密密钥（必须 32 字节）
+auth_mode = "%s"          # 认证模式："standalone"（默认）或 "sso"
+# SSO 模式配置（auth_mode = "sso" 时填写）
+# sso_issuer = "https://auth.sztcrs.com"
+# sso_cookie_name = "_goauth_token"
+# sso_public_key = "-----BEGIN PUBLIC KEY-----\n...\n-----END PUBLIC KEY-----"
 
 # 反垃圾配置
 [spam]
@@ -158,7 +170,7 @@ file = "%s"               # 日志文件路径
 		cfg.Server.Address, cfg.Server.AutoTLS, cfg.Server.ACMEmail,
 		cfg.Server.CertDataDir, cfg.Server.HTTPSPort, cfg.Server.HTTPPort,
 		cfg.Database.Path,
-		cfg.Security.JWTSecret, cfg.Security.EncryptionKey,
+		cfg.Security.JWTSecret, cfg.Security.EncryptionKey, cfg.Security.AuthMode,
 		cfg.Spam.RateLimitPerMinute, formatKeywords(cfg.Spam.BlockedKeywords),
 		cfg.Admin.DefaultUsername, cfg.Admin.DefaultPassword,
 		cfg.DirectAccess.Allow, cfg.DirectAccess.KeyName, cfg.DirectAccess.Key,
