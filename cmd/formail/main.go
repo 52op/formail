@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
 	"time"
 
@@ -69,7 +70,19 @@ func main() {
 
 	r.GET("/", func(c *gin.Context) { servePage(c, "/landing.html") })
 	r.GET("/docs", func(c *gin.Context) { servePage(c, "/docs.html") })
-	r.GET("/login", func(c *gin.Context) { servePage(c, "/login.html") })
+	r.GET("/login", func(c *gin.Context) {
+		// SSO 模式：自动跳转到 GoAuth 登录页，带 redirect 回 Formail dashboard
+		if cfg.Security.AuthMode == "sso" && cfg.Security.SSOIssuer != "" {
+			scheme := "https"
+			if c.Request.TLS == nil && c.GetHeader("X-Forwarded-Proto") != "https" {
+				scheme = "http"
+			}
+			redirect := scheme + "://" + c.Request.Host + "/dashboard"
+			c.Redirect(302, cfg.Security.SSOIssuer+"/login?redirect="+url.QueryEscape(redirect))
+			return
+		}
+		servePage(c, "/login.html")
+	})
 	r.GET("/dashboard", func(c *gin.Context) { servePage(c, "/forms.html") })
 	r.GET("/dashboard/forms", func(c *gin.Context) { servePage(c, "/forms.html") })
 	r.GET("/dashboard/channels", func(c *gin.Context) { servePage(c, "/channels.html") })
@@ -109,7 +122,7 @@ func main() {
 		if cookieName == "" {
 			cookieName = "_goauth_token"
 		}
-		authMiddleware = middleware.RequireAuthSSO(pub, cookieName, cfg.Security.SSOIssuer)
+		authMiddleware = middleware.RequireAuthSSO(database, pub, cookieName, cfg.Security.SSOIssuer)
 		fmt.Println("✅ SSO 模式已启用，认证由 GoAuth 负责")
 	} else {
 		authMiddleware = middleware.RequireAuth(cfg.Security.JWTSecret)

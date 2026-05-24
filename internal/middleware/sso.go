@@ -3,6 +3,7 @@ package middleware
 import (
 	"crypto/rsa"
 	"crypto/x509"
+	"database/sql"
 	"encoding/pem"
 	"errors"
 	"strings"
@@ -77,8 +78,36 @@ func extractBearerToken(c *gin.Context, cookieName string) string {
 	return ""
 }
 
+// ensureSSOUser 确保 SSO 用户在本地 users 表存在（用 GoAuth 的 user_id 作为本地 id）
+func ensureSSOUser(db *sql.DB, claims *ssoClaims) error {
+	var exists int
+	err := db.QueryRow(`SELECT 1 FROM users WHERE id=?`, claims.UserID).Scan(&exists)
+	if err == nil {
+		return nil
+	}
+	if err != sql.ErrNoRows {
+		return err
+	}
+	username := claims.Username
+	if username == "" {
+		username = claims.Email
+	}
+	if username == "" {
+		username = "sso_user"
+	}
+	role := claims.Role
+	if role != "admin" {
+		role = "user"
+	}
+	_, err = db.Exec(
+		`INSERT INTO users(id, username, password_hash, role, display_name, email) VALUES(?,?,?,?,?,?)`,
+		claims.UserID, username, "sso", role, username, claims.Email,
+	)
+	return err
+}
+
 // RequireAuthSSO SSO 模式下的认证中间件（用 GoAuth 公钥验证 RS256 JWT）
-func RequireAuthSSO(pub *rsa.PublicKey, cookieName string, issuer string) gin.HandlerFunc {
+func RequireAuthSSO(db *sql.DB, pub *rsa.PublicKey, cookieName string, issuer string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		tokenStr := extractBearerToken(c, cookieName)
 		if tokenStr == "" {
@@ -88,6 +117,10 @@ func RequireAuthSSO(pub *rsa.PublicKey, cookieName string, issuer string) gin.Ha
 		claims, err := verifyRS256Token(tokenStr, pub, issuer)
 		if err != nil {
 			c.AbortWithStatusJSON(401, gin.H{"code": 401, "message": "invalid token"})
+			return
+		}
+		if err := ensureSSOUser(db, claims); err != nil {
+			c.AbortWithStatusJSON(500, gin.H{"code": 500, "message": "ensure user failed: " + err.Error()})
 			return
 		}
 		c.Set("user_id", claims.UserID)

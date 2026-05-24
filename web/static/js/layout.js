@@ -1,12 +1,37 @@
 function requireAuth() {
+  const params = new URLSearchParams(location.search);
+  const urlToken = params.get('token');
+  if (urlToken) {
+    API.setToken(urlToken);
+    params.delete('token');
+    const clean = params.toString();
+    history.replaceState(null, '', location.pathname + (clean ? '?' + clean : ''));
+  }
   if (!API.token()) {
     location.href = "/login";
+    return;
   }
+  // 启动后台任务，syncSession 拿 role / app-config，renderLayout 会 await 它
+  window.__sessionReady = (async () => {
+    try {
+      const [me] = await Promise.all([
+        API.request('/api/auth/me'),
+        fetch('/api/app-config').then(r => r.json()).then(d => { if (d.data) window.__appConfig = d.data; }).catch(() => {}),
+      ]);
+      if (me && me.role) localStorage.setItem('formail_role', me.role);
+    } catch {}
+  })();
 }
 
 function logout() {
   API.clearToken();
   localStorage.removeItem("formail_role");
+  // SSO 模式：跳到 GoAuth 清 cookie 后再跳回本站 /login
+  const appCfg = window.__appConfig;
+  if (appCfg && appCfg.auth_mode === 'sso' && appCfg.sso_url) {
+    location.href = appCfg.sso_url + '/logout?redirect=' + encodeURIComponent(location.origin + '/login');
+    return;
+  }
   location.href = "/login";
 }
 
@@ -157,6 +182,7 @@ async function loadSiteSettingsForLayout() {
 }
 
 async function renderLayout(active, title, contentHTML) {
+  if (window.__sessionReady) await window.__sessionReady;
   const settings = await loadSiteSettingsForLayout();
 
   let logoHTML = `
