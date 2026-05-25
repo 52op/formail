@@ -250,7 +250,7 @@ async function renderLayout(active, title, contentHTML) {
   `;
 
   if (settings?.logo_url) {
-    logoHTML = `<img src="${settings.logo_url}" alt="Logo" style="height: 28px;" />`;
+    logoHTML = `<img src="${settings.logo_url}" alt="Logo" style="height: 64px;" />`;
   }
 
   document.body.innerHTML = `

@@ -459,7 +459,7 @@ Invoke-RestMethod -Uri "https://your-domain/v1/emails" `
                         
                         if (settings.logo_url) {
                             const logoEl = document.getElementById('docsLogo');
-                            logoEl.innerHTML = `<img src="${settings.logo_url}" alt="Logo" style="height: 28px;" />`;
+                            logoEl.innerHTML = `<img src="${settings.logo_url}" alt="Logo" style="height: 64px;" />`;
                         } else if (settings.site_title) {
                             const logoEl = document.getElementById('docsLogo');
                             logoEl.innerHTML = `<span style="font-size: 1.25rem; font-weight: 700;">${settings.site_title}</span>`;
