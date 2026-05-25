@@ -7,17 +7,74 @@ function requireAuth() {
     const clean = params.toString();
     history.replaceState(null, '', location.pathname + (clean ? '?' + clean : ''));
   }
-  if (!API.token()) {
-    location.href = "/login";
-    return;
-  }
-  // 启动后台任务，syncSession 拿 role / app-config，renderLayout 会 await 它
+
+  // 启动后台任务，拿 role / app-config / SSO 会话检查，renderLayout 会 await 它
   window.__sessionReady = (async () => {
+    // 先加载 app-config
     try {
-      const [me] = await Promise.all([
-        API.request('/api/auth/me'),
-        fetch('/api/app-config').then(r => r.json()).then(d => { if (d.data) window.__appConfig = d.data; }).catch(() => {}),
-      ]);
+      const cfgRes = await fetch('/api/app-config');
+      if (cfgRes.ok) {
+        const cfgData = await cfgRes.json();
+        if (cfgData.data) window.__appConfig = cfgData.data;
+      }
+    } catch {}
+
+    const appCfg = window.__appConfig;
+    const isSSO = appCfg && appCfg.auth_mode === 'sso' && appCfg.sso_url;
+
+    // SSO 模式：每次都检查 GoAuth 会话（保证退出/切换账号能同步）
+    if (isSSO) {
+      // HTTP 访问无法发送 Secure cookie，自动升级到 HTTPS
+      if (location.protocol === 'http:') {
+        location.replace(location.href.replace(/^http:/, 'https:'))
+        return
+      }
+      try {
+        const ssoRes = await fetch(appCfg.sso_url + '/api/auth/me', { credentials: 'include' });
+        if (ssoRes.ok) {
+          const ssoData = await ssoRes.json();
+          const goauthToken = ssoData.data && ssoData.data.token;
+          if (goauthToken) {
+            if (goauthToken !== API.token()) {
+              // GoAuth 用户变了（切换账号/首次）→ 更新 token
+              API.setToken(goauthToken);
+              if (ssoData.data.role) localStorage.setItem('formail_role', ssoData.data.role);
+            }
+            // 验证本地 token
+            try {
+              const me = await API.request('/api/auth/me');
+              if (me && me.role) localStorage.setItem('formail_role', me.role);
+            } catch {}
+            return;
+          }
+        }
+        // GoAuth 未登录 → 清除本地 token
+        API.clearToken();
+        localStorage.removeItem('formail_role');
+        location.href = "/login";
+        throw new Error('AUTH_REQUIRED');
+      } catch (e) {
+        if (e.message === 'AUTH_REQUIRED') throw e;
+        // GoAuth 不可达，走本地验证
+        if (!API.token()) {
+          location.href = "/login";
+          throw new Error('AUTH_REQUIRED');
+        }
+        try {
+          const me = await API.request('/api/auth/me');
+          if (me && me.role) localStorage.setItem('formail_role', me.role);
+        } catch {}
+        return;
+      }
+    }
+
+    // standalone 模式：只验证本地 token
+    if (!API.token()) {
+      location.href = "/login";
+      throw new Error('AUTH_REQUIRED');
+    }
+    try {
+      const me = await API.request('/api/auth/me');
       if (me && me.role) localStorage.setItem('formail_role', me.role);
     } catch {}
   })();

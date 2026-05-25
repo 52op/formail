@@ -67,3 +67,5 @@ build/
 .playwright-mcp/
 *.png
 *.svg
+
+*.zip
