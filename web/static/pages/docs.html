@@ -9,6 +9,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/assets/css/style.css" />
     <link rel="stylesheet" href="/assets/css/marketing.css" />
+    <link id="favicon" rel="icon">
     <style>
         .btn-primary {
             background: linear-gradient(135deg, #ffffff 0%, #f1f5f9 100%);
@@ -466,10 +467,7 @@ Invoke-RestMethod -Uri "https://your-domain/v1/emails" `
                         }
                         
                         if (settings.favicon_url) {
-                            const favicon = document.querySelector('link[rel="icon"]');
-                            if (favicon) {
-                                favicon.href = settings.favicon_url;
-                            }
+                            document.getElementById('favicon').href = settings.favicon_url;
                         }
                     }
                 }

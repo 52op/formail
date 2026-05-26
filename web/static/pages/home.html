@@ -6,6 +6,7 @@
   <title>Formail</head></title> - The form solution for any developer</title>
   <link rel="stylesheet" href="/assets/css/style.css" />
   <link rel="stylesheet" href="/assets/css/marketing.css" />
+  <link id="favicon" rel="icon">
 </head>
 <body class="marketing">
   <div class="marketing-shell">
@@ -77,4 +78,7 @@
     </section>
   </div>
 </body>
+<script>
+fetch('/api/site-settings').then(r=>r.json()).then(d=>{const s=d.data;if(s?.favicon_url)document.getElementById('favicon').href=s.favicon_url;if(s?.site_title)document.title=s.site_title;if(s?.meta_description)document.querySelector('meta[name="description"]')?.setAttribute('content',s.meta_description)}).catch(()=>{})
+</script>
 </html>

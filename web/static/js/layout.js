@@ -253,6 +253,10 @@ async function renderLayout(active, title, contentHTML) {
     logoHTML = `<img src="${settings.logo_url}" alt="Logo" style="height: 64px;" />`;
   }
 
+  if (settings?.favicon_url) {
+    document.getElementById('favicon').href = settings.favicon_url;
+  }
+
   document.body.innerHTML = `
     <div class="app-shell">
       <div class="mobile-topbar">

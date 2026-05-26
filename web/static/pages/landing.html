@@ -9,6 +9,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/assets/css/style.css" />
   <link rel="stylesheet" href="/assets/css/marketing.css" />
+  <link id="favicon" rel="icon">
   <style>
     .hero-main {
       background: linear-gradient(135deg, #1e1b4b 0%, #312e81 30%, #1e40af 70%, #3b82f6 100%);
@@ -385,10 +386,7 @@
               }
             }
             if (settings.favicon_url) {
-              const favicon = document.querySelector('link[rel="icon"]');
-              if (favicon) {
-                favicon.href = settings.favicon_url;
-              }
+              document.getElementById('favicon').href = settings.favicon_url;
             }
             if (settings.copyright) {
               const copyright = document.querySelector('.m-footer-copyright');

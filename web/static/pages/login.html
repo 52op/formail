@@ -11,6 +11,7 @@
             rel="stylesheet"
         />
         <link rel="stylesheet" href="/assets/css/style.css" />
+        <link id="favicon" rel="icon">
         <style>
             .tabs {
                 display: flex;
@@ -749,11 +750,7 @@
                             }
 
                             if (settings.favicon_url) {
-                                const favicon =
-                                    document.querySelector('link[rel="icon"]');
-                                if (favicon) {
-                                    favicon.href = settings.favicon_url;
-                                }
+                                document.getElementById('favicon').href = settings.favicon_url;
                             }
 
                             const reasonGroup = document.getElementById("regReasonGroup");
