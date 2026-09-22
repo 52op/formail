@@ -25,12 +25,13 @@ type DirectAccessConfig struct {
 }
 
 type ServerConfig struct {
-	Address     string `toml:"address"`
-	AutoTLS     bool   `toml:"auto_tls"`
-	ACMEmail    string `toml:"acme_email"`
-	CertDataDir string `toml:"cert_data_dir"`
-	HTTPSPort   string `toml:"https_port"`
-	HTTPPort    string `toml:"http_port"`
+	Address        string   `toml:"address"`
+	AutoTLS        bool     `toml:"auto_tls"`
+	ACMEmail       string   `toml:"acme_email"`
+	CertDataDir    string   `toml:"cert_data_dir"`
+	HTTPSPort      string   `toml:"https_port"`
+	HTTPPort       string   `toml:"http_port"`
+	TrustedProxies []string `toml:"trusted_proxies"` // 信任的反向代理 IP/CIDR，用于正确解析客户端 IP
 }
 
 type DatabaseConfig struct {
@@ -48,8 +49,10 @@ type SecurityConfig struct {
 }
 
 type SpamConfig struct {
-	RateLimitPerMinute int      `toml:"rate_limit_per_minute"`
-	BlockedKeywords    []string `toml:"blocked_keywords"`
+	RateLimitPerMinute      int      `toml:"rate_limit_per_minute"`
+	RateLimitPerFormMinute  int      `toml:"rate_limit_per_form_minute"`
+	RateLimitPerFormHour    int      `toml:"rate_limit_per_form_hour"`
+	BlockedKeywords         []string `toml:"blocked_keywords"`
 }
 
 type AdminConfig struct {
@@ -79,8 +82,10 @@ func Default() Config {
 			SSOCookieName: "_goauth_token",
 		},
 		Spam: SpamConfig{
-			RateLimitPerMinute: 30,
-			BlockedKeywords:    []string{"viagra", "casino", "loan", "bitcoin", "porn"},
+			RateLimitPerMinute:     30,
+			RateLimitPerFormMinute: 6,
+			RateLimitPerFormHour:   30,
+			BlockedKeywords:        []string{"viagra", "casino", "loan", "bitcoin", "porn"},
 		},
 		Admin: AdminConfig{
 			DefaultUsername: "letvar@it0731.cn",
@@ -130,6 +135,7 @@ acme_email = "%s"         # ACME 邮箱，用于 Let's Encrypt 证书到期通�
 cert_data_dir = "%s"      # 证书存储目录
 https_port = "%s"         # HTTPS 端口（AutoTLS 模式）
 http_port = "%s"          # HTTP 端口（ACME 验证 + 跳转）
+trusted_proxies = [%s]    # 信任的反向代理 IP/CIDR（如 Cloudflare 回源 IP），留空则只信任本机
 
 # 数据库配置
 [database]
@@ -148,6 +154,8 @@ auth_mode = "%s"          # 认证模式："standalone"（默认）或 "sso"
 # 反垃圾配置
 [spam]
 rate_limit_per_minute = %d  # 每个 IP 每分钟最大提交次数
+rate_limit_per_form_minute = %d  # 同一表单+IP 每分钟最大提交次数
+rate_limit_per_form_hour = %d    # 同一表单+IP 每小时最大提交次数
 blocked_keywords = [%s]     # 屏蔽关键词列表
 
 # 管理员账号
@@ -169,9 +177,10 @@ file = "%s"               # 日志文件路径
 `,
 		cfg.Server.Address, cfg.Server.AutoTLS, cfg.Server.ACMEmail,
 		cfg.Server.CertDataDir, cfg.Server.HTTPSPort, cfg.Server.HTTPPort,
+		formatStringList(cfg.Server.TrustedProxies),
 		cfg.Database.Path,
 		cfg.Security.JWTSecret, cfg.Security.EncryptionKey, cfg.Security.AuthMode,
-		cfg.Spam.RateLimitPerMinute, formatKeywords(cfg.Spam.BlockedKeywords),
+		cfg.Spam.RateLimitPerMinute, cfg.Spam.RateLimitPerFormMinute, cfg.Spam.RateLimitPerFormHour, formatKeywords(cfg.Spam.BlockedKeywords),
 		cfg.Admin.DefaultUsername, cfg.Admin.DefaultPassword,
 		cfg.DirectAccess.Allow, cfg.DirectAccess.KeyName, cfg.DirectAccess.Key,
 		cfg.Log.File,
@@ -179,13 +188,17 @@ file = "%s"               # 日志文件路径
 	return os.WriteFile(path, []byte(content), 0644)
 }
 
-func formatKeywords(kw []string) string {
+func formatStringList(items []string) string {
 	result := ""
-	for i, k := range kw {
+	for i, it := range items {
 		if i > 0 {
 			result += ", "
 		}
-		result += `"` + k + `"`
+		result += `"` + it + `"`
 	}
 	return result
+}
+
+func formatKeywords(kw []string) string {
+	return formatStringList(kw)
 }

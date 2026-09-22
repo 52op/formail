@@ -51,6 +51,8 @@ func migrate(db *sql.DB) error {
 			email_subject_template TEXT NOT NULL DEFAULT '新表单提交: {{form_name}}',
 			email_body_template TEXT NOT NULL DEFAULT '{{fields}}',
 			honeypot_field TEXT NOT NULL DEFAULT '_gotcha',
+			captcha_required INTEGER NOT NULL DEFAULT 0,
+			require_challenge INTEGER NOT NULL DEFAULT 0,
 			active INTEGER NOT NULL DEFAULT 1,
 			created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 			updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
@@ -405,6 +407,24 @@ func ensureFormChannelColumns(db *sql.DB) error {
 	if !has {
 		if _, err := db.Exec(`ALTER TABLE forms ADD COLUMN fields_schema TEXT NOT NULL DEFAULT ''`); err != nil {
 			return fmt.Errorf("add forms.fields_schema failed: %w", err)
+		}
+	}
+	has, err = tableHasColumn(db, "forms", "captcha_required")
+	if err != nil {
+		return err
+	}
+	if !has {
+		if _, err := db.Exec(`ALTER TABLE forms ADD COLUMN captcha_required INTEGER NOT NULL DEFAULT 0`); err != nil {
+			return fmt.Errorf("add forms.captcha_required failed: %w", err)
+		}
+	}
+	has, err = tableHasColumn(db, "forms", "require_challenge")
+	if err != nil {
+		return err
+	}
+	if !has {
+		if _, err := db.Exec(`ALTER TABLE forms ADD COLUMN require_challenge INTEGER NOT NULL DEFAULT 0`); err != nil {
+			return fmt.Errorf("add forms.require_challenge failed: %w", err)
 		}
 	}
 	return nil

@@ -218,6 +218,9 @@
       </div>
       <div class="form-group"><label>允许的来源域名</label><input id="allowed_origins" placeholder="留空允许所有来源，多个域名用逗号分隔，支持通配符如 https://*.example.com" /></div>
       <div class="form-group"><label>蜜罐字段名</label><input id="honeypot_field" placeholder="留空禁用，建议使用 _gotcha" /></div>
+      <div class="form-group"><label>提交需图形验证码</label><select id="captcha_required"><option value="false">关闭</option><option value="true">开启（推荐，可有效拦截机器提交）</option></select></div>
+      <div class="form-group"><label>提交需签名挑战</label><select id="require_challenge"><option value="false">关闭</option><option value="true">开启（需页面加载 formail-captcha.js，否则无脚本提交会被拦截）</option></select></div>
+      <div class="form-group" style="grid-column:1/-1;"><p class="muted" style="margin:0;font-size:12px;">防骚扰说明：开启任一防护时，页面需引入 <code>&lt;script src="https://formail.it0731.cn/assets/js/formail-captcha.js" defer&gt;&lt;/script&gt;</code> 自动生效；两个开关都关闭时不拦截任何提交，垃圾邮件会发送到该表单收件邮箱（服务端仍有内容过滤与尺寸上限兜底）。</p></div>
       <div class="form-group"><label>是否启用</label><select id="active"><option value="true">启用</option><option value="false">禁用</option></select></div>
     </div>
     <div class="grid" style="margin-top: var(--space-md);">
@@ -326,6 +329,8 @@
                 success_theme: v("success_theme"),
                 allowed_origins: v("allowed_origins"),
                 honeypot_field: v("honeypot_field"),
+                captcha_required: v("captcha_required") === "true",
+                require_challenge: v("require_challenge") === "true",
                 email_subject_template: v("email_subject_template"),
                 email_body_template: v("email_body_template"),
                 auto_reply_enabled: v("auto_reply_enabled") === "true",
@@ -505,6 +510,8 @@
             setv("success_theme", x.success_theme || "blue");
             setv("allowed_origins", x.allowed_origins);
             setv("honeypot_field", x.honeypot_field);
+            setv("captcha_required", String(!!x.captcha_required));
+            setv("require_challenge", String(!!x.require_challenge));
             setv("email_subject_template", x.email_subject_template);
             setv("email_body_template", x.email_body_template);
             setv("auto_reply_enabled", String(!!x.auto_reply_enabled));
@@ -530,6 +537,8 @@
             setv("success_theme", "blue");
             setv("allowed_origins", "");
             setv("honeypot_field", "_gotcha");
+            setv("captcha_required", "true");
+            setv("require_challenge", "false");
             setv("email_subject_template", "新表单提交: {{form_name}}");
             setv("email_body_template", "{{fields}}");
             setv("auto_reply_enabled", "false");

@@ -64,6 +64,14 @@ func main() {
 	}
 
 	r := gin.New()
+	// 可信代理配置：为空则只信任本机，避免伪造 X-Forwarded-For 绕过限流
+	if len(cfg.Server.TrustedProxies) > 0 {
+		if err := r.SetTrustedProxies(cfg.Server.TrustedProxies); err != nil {
+			log.Fatalf("set trusted proxies failed: %v", err)
+		}
+	} else {
+		_ = r.SetTrustedProxies([]string{"127.0.0.1", "::1"})
+	}
 	r.Use(middleware.ReverseProxyGuard(cfg.DirectAccess), gin.Logger(), gin.Recovery(), middleware.CORS())
 	serveStatic(r)
 	r.Static("/uploads", "./data/uploads")
@@ -191,6 +199,7 @@ func main() {
 
 	rl := middleware.NewRateLimiter(cfg.Spam.RateLimitPerMinute)
 	r.POST("/f/:token", rl.Middleware(), h.SubmitForm)
+	r.GET("/f/:token/captcha", h.GetFormCaptcha)
 	r.GET("/verify/:token", h.VerifyEmail)
 
 	v1 := r.Group("/v1")

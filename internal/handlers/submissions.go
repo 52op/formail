@@ -11,6 +11,7 @@ import (
 	"html"
 	"log"
 	"net/http"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -167,6 +168,93 @@ func checkRateLimit(ip string) bool {
 	return true
 }
 
+type formRateEntry struct {
+	minuteCount int
+	minuteStart time.Time
+	hourCount   int
+	hourStart   time.Time
+}
+
+var formRateStore = struct {
+	mu sync.Mutex
+	m  map[string]*formRateEntry
+}{m: make(map[string]*formRateEntry)}
+
+// checkFormRateLimit 按 表单+IP 限流：每分钟 maxMinute 次、每小时 maxHour 次
+func checkFormRateLimit(key string, maxMinute, maxHour int) (minBlocked, hourBlocked bool) {
+	if maxMinute <= 0 {
+		maxMinute = 6
+	}
+	if maxHour <= 0 {
+		maxHour = 30
+	}
+	now := time.Now()
+	formRateStore.mu.Lock()
+	defer formRateStore.mu.Unlock()
+	ent, ok := formRateStore.m[key]
+	if !ok || now.Sub(ent.minuteStart) >= time.Minute {
+		ent = &formRateEntry{minuteCount: 0, minuteStart: now, hourCount: 0, hourStart: now}
+		formRateStore.m[key] = ent
+	}
+	if now.Sub(ent.hourStart) >= time.Hour {
+		ent.hourCount = 0
+		ent.hourStart = now
+	}
+	ent.minuteCount++
+	ent.hourCount++
+	if len(formRateStore.m) > 20000 {
+		for k, e := range formRateStore.m {
+			if now.Sub(e.hourStart) > time.Hour {
+				delete(formRateStore.m, k)
+			}
+		}
+	}
+	return ent.minuteCount > maxMinute, ent.hourCount > maxHour
+}
+
+var dedupStore = struct {
+	mu sync.Mutex
+	m  map[string]time.Time
+}{m: make(map[string]time.Time)}
+
+// checkDuplicateSubmit 同一 IP 对同一表单在窗口内提交相同内容判定为重复
+func checkDuplicateSubmit(key, contentHash string, window time.Duration) bool {
+	dedupStore.mu.Lock()
+	defer dedupStore.mu.Unlock()
+	k := key + "|" + contentHash
+	if t, ok := dedupStore.m[k]; ok && time.Since(t) < window {
+		return true
+	}
+	dedupStore.m[k] = time.Now()
+	if len(dedupStore.m) > 20000 {
+		cutoff := time.Now().Add(-window)
+		for kk, tt := range dedupStore.m {
+			if tt.Before(cutoff) {
+				delete(dedupStore.m, kk)
+			}
+		}
+	}
+	return false
+}
+
+// submissionContentHash 对去重后的表单字段做排序哈希
+func submissionContentHash(data map[string]string) string {
+	keys := make([]string, 0, len(data))
+	for k := range data {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	var b strings.Builder
+	for _, k := range keys {
+		b.WriteString(k)
+		b.WriteByte('=')
+		b.WriteString(strings.TrimSpace(data[k]))
+		b.WriteByte('\n')
+	}
+	h := sha256.Sum256([]byte(b.String()))
+	return hex.EncodeToString(h[:8])
+}
+
 func isOriginAllowed(origin, allowedOrigins string) bool {
 	if allowedOrigins == "" {
 		return true
@@ -193,9 +281,9 @@ func isOriginAllowed(origin, allowedOrigins string) bool {
 func (h *Handler) SubmitForm(c *gin.Context) {
 	token := c.Param("token")
 	var f db.Form
-	var autoReply, active, emailVerified int
-	err := h.DB.QueryRow(`SELECT id,owner_user_id,channel_id,name,token,recipient_email,email_verified,success_redirect,success_message,success_theme,allowed_origins,auto_reply_enabled,auto_reply_subject,auto_reply_body,email_subject_template,email_body_template,honeypot_field,active,created_at,updated_at FROM forms WHERE token=?`, token).
-		Scan(&f.ID, &f.OwnerUserID, &f.ChannelID, &f.Name, &f.Token, &f.RecipientEmail, &emailVerified, &f.SuccessRedirect, &f.SuccessMessage, &f.SuccessTheme, &f.AllowedOrigins, &autoReply, &f.AutoReplySubject, &f.AutoReplyBody, &f.EmailSubjectTemplate, &f.EmailBodyTemplate, &f.HoneypotField, &active, &f.CreatedAt, &f.UpdatedAt)
+	var autoReply, active, emailVerified, captchaRequired, challengeRequired int
+	err := h.DB.QueryRow(`SELECT id,owner_user_id,channel_id,name,token,recipient_email,email_verified,success_redirect,success_message,success_theme,allowed_origins,auto_reply_enabled,auto_reply_subject,auto_reply_body,email_subject_template,email_body_template,honeypot_field,webhook_url,webhook_secret,fields_schema,captcha_required,require_challenge,active,created_at,updated_at FROM forms WHERE token=?`, token).
+		Scan(&f.ID, &f.OwnerUserID, &f.ChannelID, &f.Name, &f.Token, &f.RecipientEmail, &emailVerified, &f.SuccessRedirect, &f.SuccessMessage, &f.SuccessTheme, &f.AllowedOrigins, &autoReply, &f.AutoReplySubject, &f.AutoReplyBody, &f.EmailSubjectTemplate, &f.EmailBodyTemplate, &f.HoneypotField, &f.WebhookURL, &f.WebhookSecret, &f.FieldsSchema, &captchaRequired, &challengeRequired, &active, &f.CreatedAt, &f.UpdatedAt)
 	if err == sql.ErrNoRows {
 		utils.Fail(c, 404, "form not found")
 		return
@@ -264,6 +352,72 @@ func (h *Handler) SubmitForm(c *gin.Context) {
 	data, err := parseSubmissionData(c)
 	if err != nil {
 		utils.Fail(c, 400, "invalid payload")
+		return
+	}
+
+	// 提取并移除验证码/挑战字段（不存储、不进邮件）
+	captchaID := strings.TrimSpace(data["captcha_id"])
+	captchaAnswer := strings.TrimSpace(data["captcha_answer"])
+	fcToken := strings.TrimSpace(data["fc_token"])
+	delete(data, "captcha_id")
+	delete(data, "captcha_answer")
+	delete(data, "fc_token")
+
+	// 请求体/字段长度上限
+	if len(data) > 30 {
+		utils.Fail(c, 400, "too many fields")
+		return
+	}
+	for k, v := range data {
+		if len(v) > 2000 {
+			utils.Fail(c, 400, "field too long: "+k)
+			return
+		}
+	}
+
+	f.CaptchaRequired = captchaRequired == 1
+	if f.CaptchaRequired {
+		if captchaID == "" || captchaAnswer == "" {
+			utils.Fail(c, 428, "captcha required")
+			return
+		}
+		ok, refreshRequired, err := services.VerifyCaptcha(h.DB, captchaID, captchaAnswer, c.ClientIP())
+		if err != nil {
+			// 验证码记录不存在/解析失败，按校验不通过处理，避免泄漏内部错误
+			log.Printf("form captcha verify error: %v", err)
+			utils.Fail(c, 400, "验证码不正确")
+			return
+		}
+		if !ok {
+			if refreshRequired {
+				utils.Fail(c, 429, "验证码已失效，请刷新后重试")
+				return
+			}
+			utils.Fail(c, 400, "验证码不正确")
+			return
+		}
+	}
+
+	// 签名时间戳挑战：开启 require_challenge 的表单必须携带有效 fc_token
+	// （由 formail-captcha.js 页面脚本自动获取），拦截直连 POST 的机器人
+	f.ChallengeRequired = challengeRequired == 1
+	if f.ChallengeRequired {
+		if !utils.VerifyChallenge(h.Cfg.Security.JWTSecret, token, c.ClientIP(), fcToken) {
+			utils.Fail(c, 428, "challenge required: 提交需加载页面脚本获取挑战令牌")
+			return
+		}
+	}
+
+	// 扩展限流：按 表单+IP 每分钟/每小时 计数
+	minBlocked, hourBlocked := checkFormRateLimit(token+"|"+ip, h.Cfg.Spam.RateLimitPerFormMinute, h.Cfg.Spam.RateLimitPerFormHour)
+	if minBlocked || hourBlocked {
+		utils.Fail(c, 429, "too many requests for this form, try later")
+		return
+	}
+
+	// 重复内容检测：同一 IP 对同一表单短时间提交相同内容视为垃圾
+	if checkDuplicateSubmit(token+"|"+ip, submissionContentHash(data), 10*time.Minute) {
+		utils.Fail(c, 429, "duplicate submission detected")
 		return
 	}
 
@@ -662,11 +816,12 @@ func (h *Handler) BatchDeleteSubmissions(c *gin.Context) {
 	}
 	uid := h.currentUserID(c)
 	placeholders := make([]string, len(req.IDs))
-	args := []interface{}{uid}
+	args := make([]interface{}, 0, len(req.IDs)+1)
 	for i, id := range req.IDs {
 		placeholders[i] = "?"
 		args = append(args, id)
 	}
+	args = append(args, uid)
 	query := `DELETE FROM submissions WHERE id IN (SELECT s.id FROM submissions s JOIN forms f ON f.id=s.form_id WHERE s.id IN (` + strings.Join(placeholders, ",") + `) AND f.owner_user_id=?)`
 	res, err := h.DB.Exec(query, args...)
 	if err != nil {

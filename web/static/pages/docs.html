@@ -137,6 +137,15 @@
                     <p>系统自动限制同一IP的提交频率，支持设备指纹级限流。</p>
                     <h3 style="font-size: var(--text-base); margin-top: var(--space-md);">图形验证码</h3>
                     <p>登录、注册等操作支持图形验证码，防止暴力破解和机器人注册。可在后台开关控制。</p>
+                    <h3 style="font-size: var(--text-base); margin-top: var(--space-md);">表单提交防骚扰</h3>
+                    <p>静态表单在后台可以开启两类防护（均为表单级开关，可在"表单管理"中配置）：</p>
+                    <ul>
+                        <li><strong>提交需图形验证码</strong>：提交前需完成点选/滑块验证，拦截机器人最有效。</li>
+                        <li><strong>提交需签名挑战</strong>：提交需携带由页面脚本获取的一次性短时效令牌，拦截直接 POST 接口的脚本提交。</li>
+                    </ul>
+                    <p>开启任一防护后，页面需引入以下组件脚本，组件会自动识别表单、生成隐藏字段，无需其他改动：</p>
+                    <pre class="code-slab">&lt;script src="https://formail.it0731.cn/assets/js/formail-captcha.js" defer&gt;&lt;/script&gt;</pre>
+                    <p>两种防护都未开启时，表单不拦截任何提交，垃圾邮件会发送到该表单的收件邮箱（服务端仍有内容过滤、字段数量/长度上限、来源白名单与频率限制兜底）。</p>
                     <h3 style="font-size: var(--text-base); margin-top: var(--space-md);">注册审核</h3>
                     <p>当管理员将注册默认状态设置为"待审核"时，新用户注册需要填写"注册申请"，说明注册原因。注册申请会随审核邮件发送给管理员，作为审批依据，同时起到防机器人注册的作用。管理员可通过邮件中的链接一键通过或拒绝，也可在后台用户管理中操作。</p>
                 </section>

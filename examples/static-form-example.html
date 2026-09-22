@@ -17,10 +17,16 @@
     <button type="submit">提交</button>
   </form>
 
+  <!-- 验证码组件：表单开启"提交需图形验证码"后自动生效；未开启时无任何干扰 -->
+  <script src="/assets/js/formail-captcha.js" defer></script>
+
   <hr />
   <h2>JSON 提交示例（fetch）</h2>
   <button id="sendJson">发送 JSON</button>
   <script>
+    // 开启验证码的表单，JSON 提交需附带 captcha_id / captcha_answer：
+    // 1) GET /f/TOKEN/captcha 获取验证码（无需登录）
+    // 2) 由用户完成验证得到答案后，随提交一起发送
     document.getElementById('sendJson').onclick = async () => {
       const res = await fetch('http://127.0.0.1:8080/f/TOKEN', {
         method: 'POST',
@@ -29,7 +35,9 @@
           name: 'Alice',
           email: 'alice@example.com',
           message: 'hello from JSON',
-          _gotcha: ''
+          _gotcha: '',
+          // captcha_id: '...',
+          // captcha_answer: 'x1,y1,x2,y2,...'
         })
       });
       const text = await res.text();

@@ -31,6 +31,8 @@ type Form struct {
 	EmailSubjectTemplate string `json:"email_subject_template"`
 	EmailBodyTemplate    string `json:"email_body_template"`
 	HoneypotField        string `json:"honeypot_field"`
+	CaptchaRequired      bool   `json:"captcha_required"`
+	ChallengeRequired    bool   `json:"require_challenge"`
 	WebhookURL           string `json:"webhook_url"`
 	WebhookSecret        string `json:"webhook_secret"`
 	FieldsSchema         string `json:"fields_schema"`

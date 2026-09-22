@@ -27,6 +27,8 @@ type formReq struct {
 	EmailSubjectTemplate string `json:"email_subject_template"`
 	EmailBodyTemplate    string `json:"email_body_template"`
 	HoneypotField        string `json:"honeypot_field"`
+	CaptchaRequired      bool   `json:"captcha_required"`
+	ChallengeRequired    bool   `json:"require_challenge"`
 	WebhookURL           string `json:"webhook_url"`
 	WebhookSecret        string `json:"webhook_secret"`
 	FieldsSchema         string `json:"fields_schema"`
@@ -101,7 +103,7 @@ func (h *Handler) ListForms(c *gin.Context) {
 		}
 	}
 
-	rows, err := h.DB.Query(`SELECT id,owner_user_id,channel_id,name,token,recipient_email,email_verified,verify_token,success_redirect,success_message,success_theme,allowed_origins,auto_reply_enabled,auto_reply_subject,auto_reply_body,email_subject_template,email_body_template,honeypot_field,webhook_url,webhook_secret,fields_schema,active,created_at,updated_at FROM forms `+where+` ORDER BY id DESC`, args...)
+	rows, err := h.DB.Query(`SELECT id,owner_user_id,channel_id,name,token,recipient_email,email_verified,verify_token,success_redirect,success_message,success_theme,allowed_origins,auto_reply_enabled,auto_reply_subject,auto_reply_body,email_subject_template,email_body_template,honeypot_field,captcha_required,require_challenge,webhook_url,webhook_secret,fields_schema,active,created_at,updated_at FROM forms `+where+` ORDER BY id DESC`, args...)
 	if err != nil {
 		utils.Fail(c, 500, err.Error())
 		return
@@ -110,11 +112,13 @@ func (h *Handler) ListForms(c *gin.Context) {
 	forms := make([]db.Form, 0)
 	for rows.Next() {
 		var f db.Form
-		var autoReply, active, emailVerified int
-		if err := rows.Scan(&f.ID, &f.OwnerUserID, &f.ChannelID, &f.Name, &f.Token, &f.RecipientEmail, &emailVerified, &f.VerifyToken, &f.SuccessRedirect, &f.SuccessMessage, &f.SuccessTheme, &f.AllowedOrigins, &autoReply, &f.AutoReplySubject, &f.AutoReplyBody, &f.EmailSubjectTemplate, &f.EmailBodyTemplate, &f.HoneypotField, &f.WebhookURL, &f.WebhookSecret, &f.FieldsSchema, &active, &f.CreatedAt, &f.UpdatedAt); err != nil {
+		var autoReply, active, emailVerified, captchaRequired, challengeRequired int
+		if err := rows.Scan(&f.ID, &f.OwnerUserID, &f.ChannelID, &f.Name, &f.Token, &f.RecipientEmail, &emailVerified, &f.VerifyToken, &f.SuccessRedirect, &f.SuccessMessage, &f.SuccessTheme, &f.AllowedOrigins, &autoReply, &f.AutoReplySubject, &f.AutoReplyBody, &f.EmailSubjectTemplate, &f.EmailBodyTemplate, &f.HoneypotField, &captchaRequired, &challengeRequired, &f.WebhookURL, &f.WebhookSecret, &f.FieldsSchema, &active, &f.CreatedAt, &f.UpdatedAt); err != nil {
 			utils.Fail(c, 500, err.Error())
 			return
 		}
+		f.CaptchaRequired = captchaRequired == 1
+		f.ChallengeRequired = challengeRequired == 1
 		f.EmailVerified = emailVerified == 1
 		f.AutoReplyEnabled = autoReply == 1
 		f.Active = active == 1
@@ -165,6 +169,14 @@ func (h *Handler) CreateForm(c *gin.Context) {
 	if req.AutoReplyEnabled {
 		autoReply = 1
 	}
+	captchaReq := 0
+	if req.CaptchaRequired {
+		captchaReq = 1
+	}
+	challengeReq := 0
+	if req.ChallengeRequired {
+		challengeReq = 1
+	}
 	uid := h.currentUserID(c)
 	ok, err := h.channelBindableByUser(uid, req.ChannelID, h.currentUserRole(c))
 	if err != nil {
@@ -175,8 +187,8 @@ func (h *Handler) CreateForm(c *gin.Context) {
 		utils.Fail(c, 400, "channel is not bindable for current user")
 		return
 	}
-	res, err := h.DB.Exec(`INSERT INTO forms(owner_user_id,channel_id,name,token,recipient_email,email_verified,verify_token,success_redirect,success_message,success_theme,allowed_origins,auto_reply_enabled,auto_reply_subject,auto_reply_body,email_subject_template,email_body_template,honeypot_field,webhook_url,webhook_secret,fields_schema,active) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
-		uid, req.ChannelID, req.Name, token, req.RecipientEmail, 0, verifyToken, req.SuccessRedirect, req.SuccessMessage, req.SuccessTheme, req.AllowedOrigins, autoReply, req.AutoReplySubject, req.AutoReplyBody, req.EmailSubjectTemplate, req.EmailBodyTemplate, req.HoneypotField, strings.TrimSpace(req.WebhookURL), strings.TrimSpace(req.WebhookSecret), strings.TrimSpace(req.FieldsSchema), active)
+	res, err := h.DB.Exec(`INSERT INTO forms(owner_user_id,channel_id,name,token,recipient_email,email_verified,verify_token,success_redirect,success_message,success_theme,allowed_origins,auto_reply_enabled,auto_reply_subject,auto_reply_body,email_subject_template,email_body_template,honeypot_field,captcha_required,require_challenge,webhook_url,webhook_secret,fields_schema,active) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+		uid, req.ChannelID, req.Name, token, req.RecipientEmail, 0, verifyToken, req.SuccessRedirect, req.SuccessMessage, req.SuccessTheme, req.AllowedOrigins, autoReply, req.AutoReplySubject, req.AutoReplyBody, req.EmailSubjectTemplate, req.EmailBodyTemplate, req.HoneypotField, captchaReq, challengeReq, strings.TrimSpace(req.WebhookURL), strings.TrimSpace(req.WebhookSecret), strings.TrimSpace(req.FieldsSchema), active)
 	if err != nil {
 		utils.Fail(c, 500, err.Error())
 		return
@@ -223,6 +235,14 @@ func (h *Handler) UpdateForm(c *gin.Context) {
 	if req.AutoReplyEnabled {
 		autoReply = 1
 	}
+	captchaReq := 0
+	if req.CaptchaRequired {
+		captchaReq = 1
+	}
+	challengeReq := 0
+	if req.ChallengeRequired {
+		challengeReq = 1
+	}
 	active := 0
 	if req.Active {
 		active = 1
@@ -265,8 +285,8 @@ func (h *Handler) UpdateForm(c *gin.Context) {
 
 	if existingEmail != req.RecipientEmail {
 		newVerifyToken, _ := utils.Token(32)
-		_, err = h.DB.Exec(`UPDATE forms SET channel_id=?,name=?,recipient_email=?,email_verified=0,verify_token=?,success_redirect=?,success_message=?,success_theme=?,allowed_origins=?,auto_reply_enabled=?,auto_reply_subject=?,auto_reply_body=?,email_subject_template=?,email_body_template=?,honeypot_field=?,webhook_url=?,webhook_secret=?,fields_schema=?,active=?,updated_at=CURRENT_TIMESTAMP `+updateWhere,
-			append([]interface{}{req.ChannelID, req.Name, req.RecipientEmail, newVerifyToken, req.SuccessRedirect, req.SuccessMessage, req.SuccessTheme, req.AllowedOrigins, autoReply, req.AutoReplySubject, req.AutoReplyBody, req.EmailSubjectTemplate, req.EmailBodyTemplate, req.HoneypotField, strings.TrimSpace(req.WebhookURL), strings.TrimSpace(req.WebhookSecret), strings.TrimSpace(req.FieldsSchema), active}, updateArgs...)...)
+		_, err = h.DB.Exec(`UPDATE forms SET channel_id=?,name=?,recipient_email=?,email_verified=0,verify_token=?,success_redirect=?,success_message=?,success_theme=?,allowed_origins=?,auto_reply_enabled=?,auto_reply_subject=?,auto_reply_body=?,email_subject_template=?,email_body_template=?,honeypot_field=?,webhook_url=?,webhook_secret=?,fields_schema=?,captcha_required=?,require_challenge=?,active=?,updated_at=CURRENT_TIMESTAMP `+updateWhere,
+			append([]interface{}{req.ChannelID, req.Name, req.RecipientEmail, newVerifyToken, req.SuccessRedirect, req.SuccessMessage, req.SuccessTheme, req.AllowedOrigins, autoReply, req.AutoReplySubject, req.AutoReplyBody, req.EmailSubjectTemplate, req.EmailBodyTemplate, req.HoneypotField, strings.TrimSpace(req.WebhookURL), strings.TrimSpace(req.WebhookSecret), strings.TrimSpace(req.FieldsSchema), captchaReq, challengeReq, active}, updateArgs...)...)
 
 		verifyURL := h.buildVerifyURL(c, newVerifyToken)
 		go func() {
@@ -287,8 +307,8 @@ func (h *Handler) UpdateForm(c *gin.Context) {
 			_, _ = h.Mailer.SendWithFallbackByOwner(uid, req.RecipientEmail, subject, body, 0)
 		}()
 	} else {
-		_, err = h.DB.Exec(`UPDATE forms SET channel_id=?,name=?,recipient_email=?,success_redirect=?,success_message=?,success_theme=?,allowed_origins=?,auto_reply_enabled=?,auto_reply_subject=?,auto_reply_body=?,email_subject_template=?,email_body_template=?,honeypot_field=?,webhook_url=?,webhook_secret=?,fields_schema=?,active=?,updated_at=CURRENT_TIMESTAMP `+updateWhere,
-			append([]interface{}{req.ChannelID, req.Name, req.RecipientEmail, req.SuccessRedirect, req.SuccessMessage, req.SuccessTheme, req.AllowedOrigins, autoReply, req.AutoReplySubject, req.AutoReplyBody, req.EmailSubjectTemplate, req.EmailBodyTemplate, req.HoneypotField, strings.TrimSpace(req.WebhookURL), strings.TrimSpace(req.WebhookSecret), strings.TrimSpace(req.FieldsSchema), active}, updateArgs...)...)
+		_, err = h.DB.Exec(`UPDATE forms SET channel_id=?,name=?,recipient_email=?,success_redirect=?,success_message=?,success_theme=?,allowed_origins=?,auto_reply_enabled=?,auto_reply_subject=?,auto_reply_body=?,email_subject_template=?,email_body_template=?,honeypot_field=?,webhook_url=?,webhook_secret=?,fields_schema=?,captcha_required=?,require_challenge=?,active=?,updated_at=CURRENT_TIMESTAMP `+updateWhere,
+			append([]interface{}{req.ChannelID, req.Name, req.RecipientEmail, req.SuccessRedirect, req.SuccessMessage, req.SuccessTheme, req.AllowedOrigins, autoReply, req.AutoReplySubject, req.AutoReplyBody, req.EmailSubjectTemplate, req.EmailBodyTemplate, req.HoneypotField, strings.TrimSpace(req.WebhookURL), strings.TrimSpace(req.WebhookSecret), strings.TrimSpace(req.FieldsSchema), captchaReq, challengeReq, active}, updateArgs...)...)
 	}
 
 	if err != nil {
@@ -319,15 +339,15 @@ func (h *Handler) GetForm(c *gin.Context) {
 	id := c.Param("id")
 	uid := h.currentUserID(c)
 	var f db.Form
-	var autoReply, active, emailVerified int
-	query := `SELECT id,owner_user_id,channel_id,name,token,recipient_email,email_verified,verify_token,success_redirect,success_message,success_theme,allowed_origins,auto_reply_enabled,auto_reply_subject,auto_reply_body,email_subject_template,email_body_template,honeypot_field,webhook_url,webhook_secret,fields_schema,active,created_at,updated_at FROM forms WHERE id=?`
+	var autoReply, active, emailVerified, captchaRequired, challengeRequired int
+	query := `SELECT id,owner_user_id,channel_id,name,token,recipient_email,email_verified,verify_token,success_redirect,success_message,success_theme,allowed_origins,auto_reply_enabled,auto_reply_subject,auto_reply_body,email_subject_template,email_body_template,honeypot_field,captcha_required,require_challenge,webhook_url,webhook_secret,fields_schema,active,created_at,updated_at FROM forms WHERE id=?`
 	args := []interface{}{id}
 	if !h.currentUserIsAdmin(c) {
 		query += ` AND owner_user_id=?`
 		args = append(args, uid)
 	}
 	err := h.DB.QueryRow(query, args...).
-		Scan(&f.ID, &f.OwnerUserID, &f.ChannelID, &f.Name, &f.Token, &f.RecipientEmail, &emailVerified, &f.VerifyToken, &f.SuccessRedirect, &f.SuccessMessage, &f.SuccessTheme, &f.AllowedOrigins, &autoReply, &f.AutoReplySubject, &f.AutoReplyBody, &f.EmailSubjectTemplate, &f.EmailBodyTemplate, &f.HoneypotField, &f.WebhookURL, &f.WebhookSecret, &f.FieldsSchema, &active, &f.CreatedAt, &f.UpdatedAt)
+		Scan(&f.ID, &f.OwnerUserID, &f.ChannelID, &f.Name, &f.Token, &f.RecipientEmail, &emailVerified, &f.VerifyToken, &f.SuccessRedirect, &f.SuccessMessage, &f.SuccessTheme, &f.AllowedOrigins, &autoReply, &f.AutoReplySubject, &f.AutoReplyBody, &f.EmailSubjectTemplate, &f.EmailBodyTemplate, &f.HoneypotField, &captchaRequired, &challengeRequired, &f.WebhookURL, &f.WebhookSecret, &f.FieldsSchema, &active, &f.CreatedAt, &f.UpdatedAt)
 	if err == sql.ErrNoRows {
 		utils.Fail(c, 404, "not found")
 		return
@@ -336,6 +356,8 @@ func (h *Handler) GetForm(c *gin.Context) {
 		utils.Fail(c, 500, err.Error())
 		return
 	}
+	f.CaptchaRequired = captchaRequired == 1
+	f.ChallengeRequired = challengeRequired == 1
 	f.EmailVerified = emailVerified == 1
 	f.AutoReplyEnabled = autoReply == 1
 	f.Active = active == 1
